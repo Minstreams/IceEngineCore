@@ -33,7 +33,7 @@ namespace IceEngine.DebugUI.Internal
                 logQueue.Enqueue(res);
                 while (logQueue.Count > maxLogCount) logQueue.Dequeue();
 
-                logQueueFull.Enqueue(res);
+                logQueueFull.Enqueue(message);
                 while (logQueueFull.Count > maxLogCount) logQueueFull.Dequeue();
             }
         }
