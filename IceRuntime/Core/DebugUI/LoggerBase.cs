@@ -55,8 +55,8 @@ namespace IceEngine.DebugUI.Internal
         {
             GUILayout.BeginHorizontal();
             {
-                TitleLabel(GetType().Name);
-                if (GUILayout.Button(bShowFullLog ? "完整日志" : "基本日志", GUILayout.ExpandWidth(false))) bShowFullLog = !bShowFullLog;
+                Title(GetType().Name);
+                if (Button(bShowFullLog ? "完整日志" : "基本日志")) bShowFullLog = !bShowFullLog;
             }
             GUILayout.EndHorizontal();
 
