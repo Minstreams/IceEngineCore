@@ -55,15 +55,106 @@ namespace IceEngine.DebugUI
                 GUI.changed |= changedStack.Pop();
             }
         }
-        public static GUILayout.HorizontalScope HORIZONTAL => Horizontal();
-        public static GUILayout.VerticalScope VERTICAL => Vertical();
-        public static ChangeCheckScope GUICHECK => new ChangeCheckScope();
-        public static bool GUIChanged => GUI.changed;
+        /// <summary>
+        /// 指定一个ScrollArea
+        /// </summary>
+        public class ScrollScope : IDisposable
+        {
+            public Vector2 scrollPosition;
+            public ScrollScope(Vector2 scrollPosition, bool alwaysShowHorizontal, bool alwaysShowVertical, GUIStyle horizontalScrollbar, GUIStyle verticalScrollbar, GUIStyle background, params GUILayoutOption[] options)
+            {
+                this.scrollPosition = GUILayout.BeginScrollView(scrollPosition, alwaysShowHorizontal, alwaysShowVertical, horizontalScrollbar, verticalScrollbar, background, options);
+            }
+
+            void IDisposable.Dispose()
+            {
+                GUILayout.EndScrollView();
+            }
+        }
+
+        protected static GUILayout.HorizontalScope HORIZONTAL => Horizontal();
+        protected static GUILayout.VerticalScope VERTICAL => Vertical();
+        protected static ChangeCheckScope GUICHECK => new ChangeCheckScope();
+        protected static bool GUIChanged => GUI.changed;
         protected GUILayout.VerticalScope BOX => Vertical(boxStyle);
-        public static GUILayout.HorizontalScope Horizontal(GUIStyle style, params GUILayoutOption[] options) => new GUILayout.HorizontalScope(style ?? GUIStyle.none, options);
-        public static GUILayout.HorizontalScope Horizontal(params GUILayoutOption[] options) => new GUILayout.HorizontalScope(options);
-        public static GUILayout.VerticalScope Vertical(GUIStyle style, params GUILayoutOption[] options) => new GUILayout.VerticalScope(style ?? GUIStyle.none, options);
-        public static GUILayout.VerticalScope Vertical(params GUILayoutOption[] options) => new GUILayout.VerticalScope(options);
+        protected static GUILayout.HorizontalScope Horizontal(GUIStyle style, params GUILayoutOption[] options) => new GUILayout.HorizontalScope(style ?? GUIStyle.none, options);
+        protected static GUILayout.HorizontalScope Horizontal(params GUILayoutOption[] options) => new GUILayout.HorizontalScope(options);
+        protected static GUILayout.VerticalScope Vertical(GUIStyle style, params GUILayoutOption[] options) => new GUILayout.VerticalScope(style ?? GUIStyle.none, options);
+        protected static GUILayout.VerticalScope Vertical(params GUILayoutOption[] options) => new GUILayout.VerticalScope(options);
+
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个Scroll View
+        /// </summary>
+        protected ScrollScope Scroll(int key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, "horizontalscrollbar", "verticalscrollbar", style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个竖直Scroll View
+        /// </summary>
+        protected ScrollScope ScrollVertical(int key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, GUIStyle.none, "verticalscrollbar", style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个水平Scroll View
+        /// </summary>
+        protected ScrollScope ScrollHorizontal(int key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, "horizontalscrollbar", GUIStyle.none, style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个隐藏bar的Scroll View
+        /// </summary>
+        protected ScrollScope ScrollInvisible(int key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, GUIStyle.none, GUIStyle.none, style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
+
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个Scroll View
+        /// </summary>
+        protected ScrollScope Scroll(string key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, "horizontalscrollbar", "verticalscrollbar", style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个竖直Scroll View
+        /// </summary>
+        protected ScrollScope ScrollVertical(string key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, GUIStyle.none, "verticalscrollbar", style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个水平Scroll View
+        /// </summary>
+        protected ScrollScope ScrollHorizontal(string key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, "horizontalscrollbar", GUIStyle.none, style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
+        /// <summary>
+        /// 在Using语句中使用的Scope，指定一个隐藏bar的Scroll View
+        /// </summary>
+        protected ScrollScope ScrollInvisible(string key, GUIStyle style = null, params GUILayoutOption[] options)
+        {
+            var res = new ScrollScope(GetVector2(key), false, false, GUIStyle.none, GUIStyle.none, style ?? GUIStyle.none, options);
+            SetVector2(key, res.scrollPosition);
+            return res;
+        }
         #endregion
 
         #region GUI Elements
@@ -80,7 +171,7 @@ namespace IceEngine.DebugUI
         protected static void Label(string text, params GUILayoutOption[] options) => Label(text, DefaultLabelStyle, options);
         protected void Title(string text) => Label(text, boxStyle, GUILayout.ExpandWidth(true));
 
-        protected bool Button(string text) => GUILayout.Button(text, GUILayout.ExpandWidth(false));
+        protected bool Button(string text, bool expandWidth = false) => GUILayout.Button(text, GUILayout.ExpandWidth(expandWidth));
 
         protected bool _Toggle(string label, bool value) => GUILayout.Toggle(value, label);
         protected bool Toggle(string label, ref bool value) => value = _Toggle(label, value);
@@ -108,11 +199,9 @@ namespace IceEngine.DebugUI
 
         protected string _TextField(string label, string value)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(label, AutoWidth(label));
-            string res = GUILayout.TextField(value);
-            GUILayout.EndHorizontal();
-            return res;
+            using var _ = HORIZONTAL;
+            Label(label, AutoWidth(label));
+            return GUILayout.TextField(value);
         }
         protected string TextField(string label, ref string value) => value = _TextField(label, value);
         protected string TextField(string key, string defaultValue = null, string labelOverride = null)
@@ -125,20 +214,18 @@ namespace IceEngine.DebugUI
 
         protected int _IntField(string label, int value)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(label, AutoWidth(label));
+            using var _ = HORIZONTAL;
+            Label(label, AutoWidth(label));
             int res;
             try
             {
                 res = int.Parse(GUILayout.TextField(value.ToString()));
-                GUILayout.EndHorizontal();
                 return res;
             }
             catch
             {
-                GUILayout.EndHorizontal();
                 return value;
-            };
+            }
         }
         protected int IntField(string label, ref int value) => value = _IntField(label, value);
         protected int IntField(string key, int defaultValue = 0, string labelOverride = null)
@@ -149,22 +236,42 @@ namespace IceEngine.DebugUI
             return SetInt(key, _IntField(label, value));
         }
 
-        protected float _FloatField(string label, float value)
+        protected int _SliderInt(string label, int value, int min = 0, int max = 1)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(label, AutoWidth(label));
-            float res;
+            using var _ = HORIZONTAL;
+            Label(label, AutoWidth(label));
             try
             {
-                res = float.Parse(GUILayout.TextField(value.ToString()));
-                GUILayout.EndHorizontal();
+                int res = (int)GUILayout.HorizontalSlider(value, min, max);
                 return res;
             }
             catch
             {
-                GUILayout.EndHorizontal();
                 return value;
-            };
+            }
+        }
+        protected int SliderInt(string label, ref int value, int min = 0, int max = 1) => value = _SliderInt(label, value, min, max);
+        protected int SliderInt(string key, int defaultValue = 0, int min = 0, int max = 1, string labelOverride = null)
+        {
+            var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
+            var value = GetInt(key, defaultValue);
+
+            return SetInt(key, SliderInt(label, value, min, max));
+        }
+
+        protected float _FloatField(string label, float value)
+        {
+            using var _ = HORIZONTAL;
+            Label(label, AutoWidth(label));
+            try
+            {
+                float res = float.Parse(GUILayout.TextField(value.ToString()));
+                return res;
+            }
+            catch
+            {
+                return value;
+            }
         }
         protected float FloatField(string label, ref float value) => value = _FloatField(label, value);
         protected float FloatField(string key, float defaultValue = 0, string labelOverride = null)
@@ -174,15 +281,33 @@ namespace IceEngine.DebugUI
 
             return SetFloat(key, _FloatField(label, value));
         }
+
+        protected float _Slider(string label, float value, float min = 0, float max = 1)
+        {
+            using var _ = HORIZONTAL;
+            Label(label, AutoWidth(label));
+            try
+            {
+                float res = GUILayout.HorizontalSlider(value, min, max);
+                return res;
+            }
+            catch
+            {
+                return value;
+            }
+        }
+        protected float Slider(string label, ref float value, float min = 0, float max = 1) => value = _Slider(label, value, min, max);
+        protected float Slider(string key, float defaultValue = 0, float min = 0, float max = 1, string labelOverride = null)
+        {
+            var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
+            var value = GetFloat(key, defaultValue);
+
+            return SetFloat(key, _Slider(label, value, min, max));
+        }
+
         #endregion
 
         #region 临时数据托管
-        internal Dictionary<string, Color> _stringColorMap = new();
-        public Color GetColor(string key) => GetColor(key, Color.white);
-        public Color GetColor(string key, Color defaultVal) => _stringColorMap.TryGetValue(key, out Color val) ? val : _stringColorMap[key] = defaultVal;
-        public Color SetColor(string key, Color value) => _stringColorMap[key] = value;
-
-
         internal Dictionary<string, bool> _stringBoolMap = new();
         public bool GetBool(string key, bool defaultVal = false) => _stringBoolMap.TryGetValue(key, out bool res) ? res : _stringBoolMap[key] = defaultVal;
         public bool SetBool(string key, bool value) => _stringBoolMap[key] = value;
