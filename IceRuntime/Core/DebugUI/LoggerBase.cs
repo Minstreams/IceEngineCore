@@ -17,6 +17,7 @@ namespace IceEngine.DebugUI.Internal
         readonly Queue<string> logQueueFull = new Queue<string>();
         Regex Reg => _reg ??= new Regex(RegexExpr); Regex _reg = null;
         bool bShowFullLog = false;
+        Vector2 pos;
         bool ProcessLog(string message, out string res)
         {
             res = "";
@@ -57,9 +58,11 @@ namespace IceEngine.DebugUI.Internal
             GUILayout.BeginHorizontal();
             {
                 TitleLabel(GetType().Name);
-                if (GUILayout.Button("完整日志", GUILayout.ExpandWidth(false))) bShowFullLog = !bShowFullLog;
+                if (GUILayout.Button(bShowFullLog ? "完整日志" : "基本日志", GUILayout.ExpandWidth(false))) bShowFullLog = !bShowFullLog;
             }
             GUILayout.EndHorizontal();
+
+            pos = GUILayout.BeginScrollView(pos, false, true);
             if (bShowFullLog)
             {
                 foreach (var msg in logQueueFull)
@@ -74,6 +77,7 @@ namespace IceEngine.DebugUI.Internal
                     GUILayout.Label(msg, labelStyle);
                 }
             }
+            GUILayout.EndScrollView();
         }
     }
 }
