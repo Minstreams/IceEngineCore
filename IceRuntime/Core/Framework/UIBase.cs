@@ -78,7 +78,9 @@ namespace IceEngine.DebugUI
         protected void Title(string text) => Label(text, boxStyle, GUILayout.ExpandWidth(true));
 
         protected bool Button(string text) => GUILayout.Button(text, GUILayout.ExpandWidth(false));
+
         protected bool _Toggle(string label, bool value) => GUILayout.Toggle(value, label);
+        protected bool Toggle(string label, ref bool value) => value = _Toggle(label, value);
         protected bool Toggle(string key, bool defaultValue = false, string labelOverride = null)
         {
             var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
@@ -86,11 +88,13 @@ namespace IceEngine.DebugUI
 
             return SetBool(key, _Toggle(label, value));
         }
+
         protected bool _ToggleButton(string label, bool value, bool expandWidth = false)
         {
             if (GUILayout.Button(label.Color(value ? Color.white : Color.gray), GUILayout.ExpandWidth(expandWidth))) return !value;
             return value;
         }
+        protected bool ToggleButton(string label, ref bool value, bool expandWidth = false) => value = _ToggleButton(label, value, expandWidth);
         protected bool ToggleButton(string key, bool defaultValue = false, string labelOverride = null, bool expandWidth = false)
         {
             var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
@@ -98,6 +102,7 @@ namespace IceEngine.DebugUI
 
             return SetBool(key, _ToggleButton(label, value, expandWidth));
         }
+
         protected string _TextField(string label, string value)
         {
             GUILayout.BeginHorizontal();
@@ -106,6 +111,7 @@ namespace IceEngine.DebugUI
             GUILayout.EndHorizontal();
             return res;
         }
+        protected string TextField(string label, ref string value) => value = _TextField(label, value);
         protected string TextField(string key, string defaultValue = null, string labelOverride = null)
         {
             var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
@@ -113,9 +119,9 @@ namespace IceEngine.DebugUI
 
             return SetString(key, _TextField(label, value));
         }
+
         protected int _IntField(string label, int value)
         {
-
             GUILayout.BeginHorizontal();
             GUILayout.Label(label, AutoWidth(label));
             int res;
@@ -131,6 +137,7 @@ namespace IceEngine.DebugUI
                 return value;
             };
         }
+        protected int IntField(string label, ref int value) => value = _IntField(label, value);
         protected int IntField(string key, int defaultValue = 0, string labelOverride = null)
         {
             var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
@@ -138,6 +145,7 @@ namespace IceEngine.DebugUI
 
             return SetInt(key, _IntField(label, value));
         }
+
         protected float _FloatField(string label, float value)
         {
             GUILayout.BeginHorizontal();
@@ -155,6 +163,7 @@ namespace IceEngine.DebugUI
                 return value;
             };
         }
+        protected float FloatField(string label, ref float value) => value = _FloatField(label, value);
         protected float FloatField(string key, float defaultValue = 0, string labelOverride = null)
         {
             var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
