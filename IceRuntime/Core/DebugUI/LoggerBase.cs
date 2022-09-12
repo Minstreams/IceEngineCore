@@ -38,14 +38,12 @@ namespace IceEngine.DebugUI.Internal
                 while (logQueueFull.Count > maxLogCount) logQueueFull.Dequeue();
             }
         }
-        protected override void OnEnable()
+        void Awake()
         {
-            base.OnEnable();
             Ice.Island.LogAction += OnLog;
         }
-        protected override void OnDisable()
+        void OnDestroy()
         {
-            base.OnDisable();
             Ice.Island.LogAction -= OnLog;
         }
         protected override void Reset()
