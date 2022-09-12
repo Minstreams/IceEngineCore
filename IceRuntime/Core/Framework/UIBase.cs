@@ -73,6 +73,9 @@ namespace IceEngine.DebugUI
         /// </summary>
         protected GUILayoutOption AutoWidth(string label) => GUILayout.Width(DefaultLabelStyle.CalcSize(new GUIContent(label + "\t")).x);
 
+        protected static void Space(float pixels) => GUILayout.Space(pixels);
+        protected static void Space() => GUILayout.FlexibleSpace();
+
         protected static void Label(string text, GUIStyle style, params GUILayoutOption[] options) => GUILayout.Label(text, style, options);
         protected static void Label(string text, params GUILayoutOption[] options) => Label(text, DefaultLabelStyle, options);
         protected void Title(string text) => Label(text, boxStyle, GUILayout.ExpandWidth(true));
