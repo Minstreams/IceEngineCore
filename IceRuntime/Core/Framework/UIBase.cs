@@ -16,10 +16,7 @@ namespace IceEngine.DebugUI
 #endif
         }
         public GUIStyle boxStyle;
-        protected virtual void Reset()
-        {
-            SetStyle(ref boxStyle, "box");
-        }
+        protected virtual void Reset() => SetStyle(ref boxStyle, "box");
 
         UIDisplayer displayer;
         protected virtual void OnEnable()
@@ -40,8 +37,6 @@ namespace IceEngine.DebugUI
         }
         protected abstract void OnUI();
 
-
-        // GUI Functions
 
         #region Scope
         /// <summary>
@@ -71,11 +66,16 @@ namespace IceEngine.DebugUI
         public static GUILayout.VerticalScope Vertical(params GUILayoutOption[] options) => new GUILayout.VerticalScope(options);
         #endregion
 
+        #region GUI Elements
         static GUIStyle DefaultLabelStyle => "label";
         /// <summary>
         /// Calculate the width of given content if rendered with default label style. Return the "width" layout option object.
         /// </summary>
         protected GUILayoutOption AutoWidth(string label) => GUILayout.Width(DefaultLabelStyle.CalcSize(new GUIContent(label + "\t")).x);
+
+        protected static void Label(string text, GUIStyle style, params GUILayoutOption[] options) => GUILayout.Label(text, style, options);
+        protected static void Label(string text, params GUILayoutOption[] options) => Label(text, DefaultLabelStyle, options);
+        protected void Title(string text) => Label(text, boxStyle, GUILayout.ExpandWidth(true));
 
         protected bool Button(string text) => GUILayout.Button(text, GUILayout.ExpandWidth(false));
         protected bool _Toggle(string label, bool value) => GUILayout.Toggle(value, label);
@@ -86,17 +86,17 @@ namespace IceEngine.DebugUI
 
             return SetBool(key, _Toggle(label, value));
         }
-        protected bool _ToggleButton(string label, bool value)
+        protected bool _ToggleButton(string label, bool value, bool expandWidth = false)
         {
-            if (GUILayout.Button(label.Color(value ? Color.white : Color.gray), GUILayout.ExpandWidth(false))) return !value;
+            if (GUILayout.Button(label.Color(value ? Color.white : Color.gray), GUILayout.ExpandWidth(expandWidth))) return !value;
             return value;
         }
-        protected bool ToggleButton(string key, bool defaultValue = false, string labelOverride = null)
+        protected bool ToggleButton(string key, bool defaultValue = false, string labelOverride = null, bool expandWidth = false)
         {
             var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
             var value = GetBool(key, defaultValue);
 
-            return SetBool(key, _ToggleButton(label, value));
+            return SetBool(key, _ToggleButton(label, value, expandWidth));
         }
         protected string _TextField(string label, string value)
         {
@@ -162,14 +162,7 @@ namespace IceEngine.DebugUI
 
             return SetFloat(key, _FloatField(label, value));
         }
-
-        /// <summary>
-        /// Make a title of certain label
-        /// </summary>
-        protected void Title(string label)
-        {
-            GUILayout.Label(label, boxStyle, GUILayout.ExpandWidth(true));
-        }
+        #endregion
 
         #region 临时数据托管
         internal Dictionary<string, Color> _stringColorMap = new();
