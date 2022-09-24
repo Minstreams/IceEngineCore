@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 
 using UnityEngine;
 using UnityEditor;
+using UnityEditor.AnimatedValues;
 
 using IceEngine;
 using static IceEditor.IceGUI;
@@ -94,6 +95,49 @@ namespace IceEditor.Framework
 
         #region 【接口】
 
+        #region 临时数据托管
+        public Color GetColor(string key) => Pack.GetColor(key);
+        public Color GetColor(string key, Color defaultVal) => Pack.GetColor(key, defaultVal);
+        public Color SetColor(string key, Color value) => Pack.SetColor(key, value);
+
+        public bool GetBool(string key, bool defaultVal = false) => Pack.GetBool(key, defaultVal);
+        public bool SetBool(string key, bool value) => Pack.SetBool(key, value);
+
+        public AnimBool GetAnimBool(string key, bool defaultVal = false) => Pack.GetAnimBool(key, defaultVal);
+        public bool GetAnimBoolValue(string key, bool defaultVal = false) => Pack.GetAnimBoolValue(key, defaultVal);
+        public bool GetAnimBoolTarget(string key, bool defaultVal = false) => Pack.GetAnimBoolTarget(key, defaultVal);
+        public float GetAnimBoolFaded(string key, bool defaultVal = false) => Pack.GetAnimBoolFaded(key, defaultVal);
+        public bool SetAnimBoolValue(string key, bool value) => Pack.SetAnimBoolValue(key, value);
+        public bool SetAnimBoolTarget(string key, bool value) => Pack.SetAnimBoolTarget(key, value);
+
+        public int GetInt(string key, int defaultVal = 0) => Pack.GetInt(key, defaultVal);
+        public int SetInt(string key, int value) => Pack.SetInt(key, value);
+
+        public float GetFloat(string key, float defaultVal = 0) => Pack.GetFloat(key, defaultVal);
+        public float SetFloat(string key, float value) => Pack.SetFloat(key, value);
+
+        public string GetString(string key, string defaultVal = "") => Pack.GetString(key, defaultVal);
+        public string SetString(string key, string value) => Pack.SetString(key, value);
+
+        public Vector2 GetVector2(int key, Vector2 defaultVal = default) => Pack.GetVector2(key, defaultVal);
+        public Vector2 SetVector2(int key, Vector2 value) => Pack.SetVector2(key, value);
+
+        public Vector2 GetVector2(string key, Vector2 defaultVal = default) => Pack.GetVector2(key, defaultVal);
+        public Vector2 SetVector2(string key, Vector2 value) => Pack.SetVector2(key, value);
+
+        public Vector3 GetVector3(string key, Vector3 defaultVal = default) => Pack.GetVector3(key, defaultVal);
+        public Vector3 SetVector3(string key, Vector3 value) => Pack.SetVector3(key, value);
+
+        public Vector4 GetVector4(string key, Vector4 defaultVal = default) => Pack.GetVector4(key, defaultVal);
+        public Vector4 SetVector4(string key, Vector4 value) => Pack.SetVector4(key, value);
+
+        public Vector2Int GetVector2Int(string key, Vector2Int defaultVal = default) => Pack.GetVector2Int(key, defaultVal);
+        public Vector2Int SetVector2Int(string key, Vector2Int value) => Pack.SetVector2Int(key, value);
+
+        public Vector3Int GetVector3Int(string key, Vector3Int defaultVal = default) => Pack.GetVector3Int(key, defaultVal);
+        public Vector3Int SetVector3Int(string key, Vector3Int value) => Pack.SetVector3Int(key, value);
+        #endregion
+
         #region 标题
         /// <summary>
         /// 当前标题内容，隐藏了基类titleContent
@@ -158,20 +202,20 @@ namespace IceEditor.Framework
 
         #region Log & Dialog
         /// <summary>
-        /// 输出一个Debug模式下才会显示的Log
+        /// 输出一个的Log
         /// </summary>
         protected void Log(string text, UnityEngine.Object context = null)
         {
-            if (!DebugMode) return;
             text = $"【{titleContent.text.Color(ThemeColorExp)}】{text}";
             if (context == null) Debug.Log(text);
             else Debug.Log(text, context);
         }
         /// <summary>
-        /// 输出一个普通模式下也会显示的Log
+        /// 输出一个Debug模式下才会显示的Log
         /// </summary>
-        protected void LogImportant(string text, UnityEngine.Object context = null)
+        protected void LogDebug(string text, UnityEngine.Object context = null)
         {
+            if (!DebugMode) return;
             text = $"【{titleContent.text.Color(ThemeColorExp)}】{text.Color(ThemeColorExp)}";
             if (context == null) Debug.Log(text);
             else Debug.Log(text, context);
@@ -312,22 +356,25 @@ namespace IceEditor.Framework
                         {
                             ColorField("ThemeColor");
 
-                            if (GUIChanged) Pack.RefreshThemeColor();
+                            if (GUIChanged)
+                            {
+                                Pack.RefreshThemeColor();
+                            }
                         }
                         if (Pack._stringColorMap.Count > 1) foreach (var key in Pack._stringColorMap.Keys) if (key != "ThemeColor") ColorField(key);
                     }
-                    if (Pack._stringBoolMap.Count > 0) using (BOX) using (SectionFolder("Bool Map")) foreach (var key in Pack._stringBoolMap.Keys) Toggle(key);
-                    if (Pack._stringIntMap.Count > 0) using (BOX) using (SectionFolder("Int Map")) foreach (var key in Pack._stringIntMap.Keys) IntField(key);
-                    if (Pack._stringFloatMap.Count > 0) using (BOX) using (SectionFolder("Float Map")) foreach (var key in Pack._stringFloatMap.Keys) FloatField(key);
-                    if (Pack._stringStringMap.Count > 0) using (BOX) using (SectionFolder("String Map")) foreach (var key in Pack._stringStringMap.Keys) TextField(key);
-                    if (Pack._stringVec2Map.Count > 0) using (BOX) using (SectionFolder("Vector2 Map")) foreach (var key in Pack._stringVec2Map.Keys) Vector2Field(key);
-                    if (Pack._stringVec3Map.Count > 0) using (BOX) using (SectionFolder("Vector3 Map")) foreach (var key in Pack._stringVec3Map.Keys) Vector3Field(key);
-                    if (Pack._stringVec4Map.Count > 0) using (BOX) using (SectionFolder("Vector4 Map")) foreach (var key in Pack._stringVec4Map.Keys) Vector4Field(key);
-                    if (Pack._stringVec2IntMap.Count > 0) using (BOX) using (SectionFolder("Vector2Int Map")) foreach (var key in Pack._stringVec2IntMap.Keys) Vector2IntField(key);
-                    if (Pack._stringVec3IntMap.Count > 0) using (BOX) using (SectionFolder("Vector3Int Map")) foreach (var key in Pack._stringVec3IntMap.Keys) Vector3IntField(key);
-                    if (Pack._intVec2Map.Count > 0) using (BOX) using (SectionFolder("Int-Vector2 Map")) foreach (var key in Pack._intVec2Map.Keys) Pack._intVec2Map[key] = _Vector2Field(key.ToString(), Pack._intVec2Map[key]);
+                    if (Pack._stringBoolMap.Count > 0) using (BOX) using (SectionFolder("Bool Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringBoolMap.Clear(); })) foreach (var key in Pack._stringBoolMap.Keys) Toggle(key);
+                    if (Pack._stringIntMap.Count > 0) using (BOX) using (SectionFolder("Int Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringIntMap.Clear(); })) foreach (var key in Pack._stringIntMap.Keys) IntField(key);
+                    if (Pack._stringFloatMap.Count > 0) using (BOX) using (SectionFolder("Float Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringFloatMap.Clear(); })) foreach (var key in Pack._stringFloatMap.Keys) FloatField(key);
+                    if (Pack._stringStringMap.Count > 0) using (BOX) using (SectionFolder("String Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringStringMap.Clear(); })) foreach (var key in Pack._stringStringMap.Keys) TextField(key);
+                    if (Pack._stringVec2Map.Count > 0) using (BOX) using (SectionFolder("Vector2 Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringVec2Map.Clear(); })) foreach (var key in Pack._stringVec2Map.Keys) Vector2Field(key);
+                    if (Pack._stringVec3Map.Count > 0) using (BOX) using (SectionFolder("Vector3 Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringVec3Map.Clear(); })) foreach (var key in Pack._stringVec3Map.Keys) Vector3Field(key);
+                    if (Pack._stringVec4Map.Count > 0) using (BOX) using (SectionFolder("Vector4 Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringVec4Map.Clear(); })) foreach (var key in Pack._stringVec4Map.Keys) Vector4Field(key);
+                    if (Pack._stringVec2IntMap.Count > 0) using (BOX) using (SectionFolder("Vector2Int Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringVec2IntMap.Clear(); })) foreach (var key in Pack._stringVec2IntMap.Keys) Vector2IntField(key);
+                    if (Pack._stringVec3IntMap.Count > 0) using (BOX) using (SectionFolder("Vector3Int Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringVec3IntMap.Clear(); })) foreach (var key in Pack._stringVec3IntMap.Keys) Vector3IntField(key);
+                    if (Pack._intVec2Map.Count > 0) using (BOX) using (SectionFolder("Int-Vector2 Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._intVec2Map.Clear(); })) foreach (var key in Pack._intVec2Map.Keys) Pack._intVec2Map[key] = _Vector2Field(key.ToString(), Pack._intVec2Map[key]);
                     // AnimBool会被SectionFolder影响,必须放在最后面
-                    if (Pack._stringAnimBoolMap.Count > 0) using (BOX) using (SectionFolder("Anim Bool Map")) foreach (var key in Pack._stringAnimBoolMap.Keys) using (HORIZONTAL) { SetAnimBoolTarget(key, _Toggle(key.ToString(), GetAnimBoolTarget(key))); _Slider(GetAnimBoolFaded(key)); }
+                    if (Pack._stringAnimBoolMap.Count > 0) using (BOX) using (SectionFolder("Anim Bool Map", extraAction: () => { Space(); if (IceButton("Clear")) Pack._stringAnimBoolMap.Clear(); })) foreach (var key in Pack._stringAnimBoolMap.Keys) using (HORIZONTAL) { SetAnimBoolTarget(key, _Toggle(key.ToString(), GetAnimBoolTarget(key))); _Slider(GetAnimBoolFaded(key)); }
                 }
             }
         }

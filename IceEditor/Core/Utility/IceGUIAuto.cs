@@ -66,18 +66,40 @@ namespace IceEditor
         /// <summary>
         /// 显示一个可展开的节
         /// </summary>
-        public static FolderScope SectionFolder(string key, bool defaultVal = true, string labelOverride = null, bool changeWidth = true)
+        public static FolderScope SectionFolder(string key, bool defaultVal = true, string labelOverride = null, bool changeWidth = true, Action extraAction = null)
         {
             var label = string.IsNullOrEmpty(labelOverride) ? key : labelOverride;
             if (IceGUIUtility.HasPack)
             {
                 var ab = GetAnimBool(key, defaultVal);
-                ab.target = GUILayout.Toggle(ab.target, label, StlSectionHeader);
+                if (extraAction != null)
+                {
+                    using (HORIZONTAL)
+                    {
+                        ab.target = GUILayout.Toggle(ab.target, label, StlSectionHeader);
+                        extraAction();
+                    }
+                }
+                else
+                {
+                    ab.target = GUILayout.Toggle(ab.target, label, StlSectionHeader);
+                }
                 return new FolderScope(ab, changeWidth);
             }
             else
             {
-                IceGUI.SectionHeader(label);
+                if (extraAction != null)
+                {
+                    using (HORIZONTAL)
+                    {
+                        IceGUI.SectionHeader(label);
+                        extraAction();
+                    }
+                }
+                else
+                {
+                    IceGUI.SectionHeader(label);
+                }
                 return null;
             }
         }
@@ -410,7 +432,7 @@ namespace IceEditor
         /// <param name="defaultContinuousMatching">连续匹配</param>
         /// <param name="defaultCaseSensitive">区分大小写</param>
         /// <param name="extraElementsAction">额外GUI元素</param>
-        public static void SearchField(IEnumerable<string> origin, ref List<(string displayName, string value)> result, string key = default, string defaultFilter = default, bool defaultUseRegex = false, bool defaultContinuousMatching = false, bool defaultCaseSensitive = false, Action extraElementsAction = null)
+        public static void SearchField(IEnumerable<string> origin, ref List<(string displayName, string value)> result, string key = default, string defaultFilter = default, bool defaultUseRegex = false, bool defaultContinuousMatching = false, bool defaultCaseSensitive = false)
         {
             string keyFilter = key + "Filter";
             string filter = GetString(keyFilter, defaultFilter);
@@ -421,7 +443,7 @@ namespace IceEditor
             string keyCaseSensitive = key + "CaseSensitive";
             bool caseSensitive = GetBool(keyCaseSensitive, defaultCaseSensitive);
 
-            IceGUI.SearchField(origin, ref result, ref filter, ref useRegex, ref continuousMatching, ref caseSensitive, extraElementsAction);
+            IceGUI.SearchField(origin, ref result, ref filter, ref useRegex, ref continuousMatching, ref caseSensitive);
 
             SetString(keyFilter, filter);
             SetBool(keyUseRegex, useRegex);
