@@ -45,6 +45,15 @@ namespace IceEngine
     /// </summary>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Class, AllowMultiple = false)]
     public sealed class RuntimeConstAttribute : Attribute { }
+    /// <summary>
+    /// 标记一个Group
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+    public sealed class GroupAttribute : Attribute
+    {
+        public string Label { get; private set; }
+        public GroupAttribute(string label = null) => Label = label;
+    }
     #endregion
 
     #region Method

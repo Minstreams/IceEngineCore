@@ -84,7 +84,7 @@ namespace IceEditor
             using var cScope = info.themeColor == null ? null : ThemeColor(info.themeColor.Value);
 
             // Header
-            if (info.headerLabel != null) Header(info.headerLabel);
+            if (info.headerLabel != null) Label(info.headerLabel, GetStyleComponentHeader(CurrentThemeColor));
 
             // m_Script 是 Monobehavior 隐藏字段，没必要显示在面板上
             if (itr.propertyPath != "m_Script" || itr.NextVisible(false))
@@ -120,6 +120,7 @@ namespace IceEditor
             public float? labelWidth = null;
             public Color? themeColor = null;
             public Dictionary<string, string> labelMap = new();
+            public Dictionary<string, string> groupMap = new();
             public HashSet<string> runtimeConstSet = new();
             public List<(string text, Action<object> action)> buttonList = new();
 
@@ -163,6 +164,11 @@ namespace IceEditor
                         if (f.GetCustomAttribute<LabelAttribute>() is not null and var a) labelMap.Add(path, a.Label);
                     }
 
+                    // 处理 Group
+                    {
+                        if (f.GetCustomAttribute<GroupAttribute>() is not null and var a) groupMap.Add(path, a.Label);
+                    }
+
                     // 处理 RuntimeConst
                     {
                         if (f.GetCustomAttribute<RuntimeConstAttribute>() is not null) runtimeConstSet.Add(path);
@@ -202,12 +208,40 @@ namespace IceEditor
         }
         static void DrawSerializedProperty(SerializedProperty itr, IceAttributesInfo info, SerializedProperty end = null, int rootPathLength = 0)
         {
+            GUILayout.VerticalScope scopeV = null;
+            FolderScope scopeF = null;
+            void EndGroup()
+            {
+                if (scopeF != null)
+                {
+                    (scopeF as IDisposable).Dispose();
+                    scopeF = null;
+                }
+                if (scopeV != null)
+                {
+                    (scopeV as IDisposable).Dispose();
+                    scopeV = null;
+                }
+            }
+            void DoGroup(string label = null)
+            {
+                EndGroup();
+                scopeV = GROUP;
+                if (!label.IsNullOrEmpty())
+                {
+                    scopeF = SectionFolder(label);
+                }
+            }
+
             do
             {
                 var path = itr.propertyPath.Substring(rootPathLength);
 
                 // 处理 Label
                 if (!info.labelMap.TryGetValue(path, out string label)) label = itr.displayName;
+
+                // 处理 Group
+                if (info.groupMap.TryGetValue(path, out string group)) DoGroup(group);
 
                 // 处理 RuntimeConst
                 bool disabled = info.runtimeConstSet.Contains(path) && EditorApplication.isPlayingOrWillChangePlaymode;
@@ -218,7 +252,7 @@ namespace IceEditor
                     var iBegin = itr.Copy(); iBegin.NextVisible(true);
                     var iEnd = itr.Copy(); iEnd.NextVisible(false);
 
-                    using (NODE) using (SectionFolder(path, true, $"{label}|{path}")) using (Disable(disabled))
+                    using (GROUP) using (SectionFolder(path, true, label/*$"{label}|{path}"*/)) using (Disable(disabled))
                     {
                         DrawSerializedProperty(iBegin, childInfo, iEnd, rootPathLength + path.Length + 1);
                     }
@@ -238,6 +272,8 @@ namespace IceEditor
                     using (GROUP) LabelError(error);
                 }
             } while (itr.NextVisible(false) && itr.propertyPath != end?.propertyPath);
+
+            EndGroup();
         }
         static void PropertyField(SerializedProperty p, string label)
         {
@@ -253,11 +289,11 @@ namespace IceEditor
                     //case SerializedPropertyType.Float: var floatValue = _FloatField(label, itr.floatValue); if (GUIChanged) itr.floatValue = floatValue; break;
                     //case SerializedPropertyType.String: var stringValue = _TextField(label, itr.stringValue); if (GUIChanged) itr.stringValue = stringValue; break;
                     //case SerializedPropertyType.Color: var colorValue = _ColorField(label, itr.colorValue); if (GUIChanged) itr.colorValue = colorValue; break;
-                    case SerializedPropertyType.Vector2: var vector2Value = _Vector2Field(label, p.vector2Value); if (GUIChanged) p.vector2Value = vector2Value; break;
-                    case SerializedPropertyType.Vector3: var vector3Value = _Vector3Field(label, p.vector3Value); if (GUIChanged) p.vector3Value = vector3Value; break;
-                    case SerializedPropertyType.Vector4: var vector4Value = _Vector4Field(label, p.vector4Value); if (GUIChanged) p.vector4Value = vector4Value; break;
-                    case SerializedPropertyType.Vector2Int: var vector2IntValue = _Vector2IntField(label, p.vector2IntValue); if (GUIChanged) p.vector2IntValue = vector2IntValue; break;
-                    case SerializedPropertyType.Vector3Int: var vector3IntValue = _Vector3IntField(label, p.vector3IntValue); if (GUIChanged) p.vector3IntValue = vector3IntValue; break;
+                    //case SerializedPropertyType.Vector2: var vector2Value = _Vector2Field(label, p.vector2Value); if (GUIChanged) p.vector2Value = vector2Value; break;
+                    //case SerializedPropertyType.Vector3: var vector3Value = _Vector3Field(label, p.vector3Value); if (GUIChanged) p.vector3Value = vector3Value; break;
+                    //case SerializedPropertyType.Vector4: var vector4Value = _Vector4Field(label, p.vector4Value); if (GUIChanged) p.vector4Value = vector4Value; break;
+                    //case SerializedPropertyType.Vector2Int: var vector2IntValue = _Vector2IntField(label, p.vector2IntValue); if (GUIChanged) p.vector2IntValue = vector2IntValue; break;
+                    //case SerializedPropertyType.Vector3Int: var vector3IntValue = _Vector3IntField(label, p.vector3IntValue); if (GUIChanged) p.vector3IntValue = vector3IntValue; break;
                     case SerializedPropertyType.Generic:
                     case SerializedPropertyType.ObjectReference:
                     case SerializedPropertyType.LayerMask:
@@ -315,7 +351,7 @@ namespace IceEditor
         #endregion
 
         #region GUIStyle
-        public static int GetThemeColorHueIndex(Color themeColor)
+        public static int GetThemeColorHueIndex(Color themeColor, bool enablePurple = false)
         {
             Color.RGBToHSV(themeColor, out float h, out float s, out _);
             if (s < 0.3f) return 0;
@@ -324,7 +360,15 @@ namespace IceEditor
             if (h < 0.19f) return 4;
             if (h < 0.46f) return 3;
             if (h < 0.52f) return 2;
-            if (h < 0.84f) return 1;
+            if (enablePurple)
+            {
+                if (h < 0.74f) return 1;
+                if (h < 0.925f) return 7;
+            }
+            else
+            {
+                if (h < 0.84f) return 1;
+            }
             return 6;
         }
         public static GUIStyle GetStyle(string key = null, Func<GUIStyle> itor = null) => IceGUIStyleBox.GetStyle(key, itor);
@@ -356,6 +400,19 @@ namespace IceEditor
             stl.onNormal.scaledBackgrounds = on.normal.scaledBackgrounds.ToArray();
             return stl;
         }
+        static readonly GUIStyle[] stlComponentHeaders = new GUIStyle[]
+        {
+            GenStyleComponentHeader(0),
+            GenStyleComponentHeader(1),
+            GenStyleComponentHeader(2),
+            GenStyleComponentHeader(3),
+            GenStyleComponentHeader(4),
+            GenStyleComponentHeader(5),
+            GenStyleComponentHeader(6),
+            GenStyleComponentHeader(7),
+        };
+        static GUIStyle GenStyleComponentHeader(int index) => new GUIStyle(EditorGUIUtility.GetBuiltinSkin(EditorSkin.Scene).GetStyle($"sv_label_{index}")) { margin = new RectOffset(0, 0, 8, 8), padding = new RectOffset(8, 8, 2, 2), fontSize = 14, alignment = TextAnchor.MiddleCenter, wordWrap = true, clipping = TextClipping.Overflow, imagePosition = ImagePosition.TextOnly, fixedHeight = 0f, };
+        internal static GUIStyle GetStyleComponentHeader(Color themeColor) => stlComponentHeaders[GetThemeColorHueIndex(themeColor, true)];
         #endregion
 
         #region SettingProvider
