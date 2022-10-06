@@ -31,9 +31,9 @@ namespace IceEngine
 
     #region Field
     /// <summary>
-    /// 字段绘制时代替标签
+    /// 字段绘制时代替标签，或者给一个类加一个Title
     /// </summary>
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Class, AllowMultiple = false)]
     public sealed class LabelAttribute : Attribute
     {
         public string Label { get; private set; }

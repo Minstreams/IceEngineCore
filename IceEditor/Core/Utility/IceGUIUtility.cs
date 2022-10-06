@@ -83,6 +83,9 @@ namespace IceEditor
             using var lScope = info.labelWidth == null ? null : LabelWidth(info.labelWidth.Value);
             using var cScope = info.themeColor == null ? null : ThemeColor(info.themeColor.Value);
 
+            // Header
+            if (info.headerLabel != null) Header(info.headerLabel);
+
             // m_Script 是 Monobehavior 隐藏字段，没必要显示在面板上
             if (itr.propertyPath != "m_Script" || itr.NextVisible(false))
             {
@@ -113,6 +116,7 @@ namespace IceEditor
             public Dictionary<string, IceAttributesInfo> childrenMap = new();
 
             // Custom Attributes
+            public string headerLabel = null;
             public float? labelWidth = null;
             public Color? themeColor = null;
             public Dictionary<string, string> labelMap = new();
@@ -141,6 +145,10 @@ namespace IceEditor
                     else if (a is LabelWidthAttribute lw)
                     {
                         labelWidth = lw.Width;
+                    }
+                    else if (a is LabelAttribute l)
+                    {
+                        headerLabel = l.Label;
                     }
                 }
 
