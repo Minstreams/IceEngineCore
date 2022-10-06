@@ -94,7 +94,13 @@ namespace IceEditor
             // 处理 Button
             foreach (var (text, action) in info.buttonList)
             {
-                if (Button(text)) action.Invoke(so.targetObject);
+                if (Button(text))
+                {
+                    foreach (var to in so.targetObjects)
+                    {
+                        action.Invoke(to);
+                    }
+                }
             }
         }
 
@@ -717,16 +723,33 @@ namespace IceEditor
             EditorApplication.hierarchyWindowItemOnGUI += OnHierarchyItemGUI;
         }
 
+        static string lastLayoutedHierarchyScene = "";
         static void OnHierarchyItemGUI(int instanceId, Rect selectionRect)
         {
             var obj = EditorUtility.InstanceIDToObject(instanceId);
             if (obj == null) return;
             if (obj is not GameObject go) throw new Exception($"Hierarchy Item must be a gameobject! {obj}");
-            foreach ((Type t, var callback) in hierarchyItemGUICallbackMap)
+            var scene = go.scene.path;
+            if (E.type == EventType.Layout) lastLayoutedHierarchyScene = scene;
+            if (go.scene.path == "") return;
+            if (E.type == EventType.Repaint && lastLayoutedHierarchyScene != scene) return;
+            try
             {
-                var comp = go.GetComponent(t);
-                if (comp == null) continue;
-                callback?.Invoke(comp, selectionRect);
+                selectionRect = selectionRect.MoveEdge(right: -16);
+                using (AreaRaw(selectionRect)) using (HORIZONTAL)
+                {
+                    Space();
+                    foreach ((Type t, var callback) in hierarchyItemGUICallbackMap)
+                    {
+                        var comp = go.GetComponent(t);
+                        if (comp == null) continue;
+                        callback?.Invoke(comp, selectionRect);
+                    }
+                }
+            }
+            catch
+            {
+                Debug.Log("AA");
             }
         }
         #endregion

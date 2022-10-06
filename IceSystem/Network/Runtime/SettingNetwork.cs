@@ -2,7 +2,6 @@
 
 namespace IceEngine.Internal
 {
-    [IceSettingPath("IceEngine/IceSystem/Network")]
     public class SettingNetwork : Framework.IceSetting<SettingNetwork>
     {
         public SettingNetwork()
