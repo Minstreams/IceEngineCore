@@ -169,14 +169,28 @@ namespace IceEditor.Internal
             AvailablePorts.Clear();
         }
 
-        Color GetColor(IceprintPort port)
+        //Color GetColor(IceprintPort port)
+        //{
+        //    Color c = Color.white;
+        //    for (int i = 0; i < port.ParamsList.Count; ++i)
+        //    {
+        //        c = Color.LerpUnclamped(GetColor(port.ParamsList[i]), c, i / ((float)(i + 1)));
+        //    }
+        //    return c;
+        //}
+
+        readonly List<Color> colorsCache = new();
+        Color[] GetColors(IceprintPort port)
         {
-            Color c = Color.white;
-            for (int i = 0; i < port.ParamsList.Count; ++i)
+            var count = port.ParamsList.Count;
+            if (count == 0) return new Color[] { Color.white };
+
+            colorsCache.Clear();
+            for (int i = 0; i < count; ++i)
             {
-                c = Color.LerpUnclamped(GetColor(port.ParamsList[i]), c, i / ((float)(i + 1)));
+                colorsCache.Add(GetColor(port.ParamsList[i]));
             }
-            return c;
+            return colorsCache.ToArray();
         }
         #endregion
 
@@ -296,6 +310,33 @@ namespace IceEditor.Internal
         }
         #endregion
 
+        #endregion
+
+        #region NodeComponent
+        static GUIStyle StlNodeLabel => _stlNodeLabel?.Check() ?? (_stlNodeLabel = new GUIStyle("CN CountBadge") { border = new RectOffset(6, 6, 6, 6), margin = new RectOffset(2, 2, 2, 2), padding = new RectOffset(4, 4, 0, 0), fontSize = 10, fixedHeight = 12f, }.Initialize(stl => { stl.normal.textColor = new Color(0f, 0f, 0f); })); static GUIStyle _stlNodeLabel;
+        static GUIStyle StlIceprintLabel => _stlIceprintLabel?.Check() ?? (_stlIceprintLabel = new GUIStyle("label") { margin = new RectOffset(2, 2, 0, 0), padding = new RectOffset(2, 2, 0, 0), richText = true, }); static GUIStyle _stlIceprintLabel;
+        static GUIStyle StlItemButton => _stlItemButton?.Check() ?? (_stlItemButton = new GUIStyle("textfield") { margin = new RectOffset(2, 2, 0, 0), padding = new RectOffset(4, 4, 1, 1), fontSize = 11, richText = true, stretchWidth = false, }); static GUIStyle _stlItemButton;
+
+        [HierarchyItemGUICallback]
+        static void NodeComponentMarkGUI(IceprintNodeComponent comp, Rect selectionRect)
+        {
+            Label(comp.GetType().Name, StlNodeLabel);
+        }
+
+        [HierarchyItemGUICallback]
+        static void OnHierarchyGUI(Iceprint print, Rect selectionRect)
+        {
+#pragma warning disable UNT0008 // Null propagation on Unity objects
+            if (Instance?.Graph == print)
+            {
+                Label("编辑中...".Color(Setting.themeColor), StlIceprintLabel);
+            }
+            else
+            {
+                if (Button("编辑".Color(Setting.themeColor), StlItemButton)) OpenPrint(print);
+            }
+#pragma warning restore UNT0008 // Null propagation on Unity objects
+        }
         #endregion
 
         #region Utility
@@ -498,6 +539,7 @@ namespace IceEditor.Internal
                         E.Use();
                     }
                     break;
+
             }
 
             // Node
@@ -587,9 +629,9 @@ namespace IceEditor.Internal
             {
                 var pos = DraggingPort.GetPos();
                 var tagent = DraggingPort.GetTangent();
-                var color = GetColor(DraggingPort);
-                IceGUIUtility.DrawPortLine(pos, E.mousePosition, tagent, color, color);
-                IceGUIUtility.DrawPortLine(E.mousePosition, pos, -tagent, color, color);
+                var colors = GetColors(DraggingPort);
+                IceGUIUtility.DrawPortLine(pos, E.mousePosition, tagent, colors, colors);
+                IceGUIUtility.DrawPortLine(E.mousePosition, pos, -tagent, colors, colors);
             }
             foreach (var node in Graph.nodeList)
             {
@@ -601,16 +643,16 @@ namespace IceEditor.Internal
                 if (E.type == EventType.Repaint && port.IsConnected)
                 {
                     Vector2 pos = port.GetPos();
-                    var color = GetColor(port);
+                    var colors = GetColors(port);
 
                     var tagent = port.GetTangent();
                     if (port is IceprintInport pin)
                     {
-                        foreach (var pp in pin.connectedPorts) IceGUIUtility.DrawPortLine(pos, pp.GetPos(), tagent, color, GetColor(pp));
+                        foreach (var pp in pin.connectedPorts) IceGUIUtility.DrawPortLine(pos, pp.GetPos(), tagent, colors, GetColors(pp));
                     }
                     else if (port is IceprintOutport pout)
                     {
-                        foreach (var pp in pout.connectedPorts) IceGUIUtility.DrawPortLine(pos, pp.port.GetPos(), tagent, color, GetColor(pp.port));
+                        foreach (var pp in pout.connectedPorts) IceGUIUtility.DrawPortLine(pos, pp.port.GetPos(), tagent, colors, GetColors(pp.port));
                     }
                 }
             }
@@ -623,7 +665,7 @@ namespace IceEditor.Internal
             void OnGUI_Port(IceprintPort port)
             {
                 Vector2 pos = port.GetPos();
-                var color = GetColor(port);
+                var colors = GetColors(port);
 
                 Rect rPort = pos.ExpandToRect(IceGUIUtility.PORT_RADIUS);
                 bool bHover = rPort.Contains(E.mousePosition);
@@ -678,7 +720,7 @@ namespace IceEditor.Internal
                                 if (DraggingPort == port)
                                 {
                                     // 被拖拽的 Port
-                                    DiscSolid(0.15f, color);
+                                    DiscSolid(0.15f, colors);
                                 }
                                 else
                                 {
@@ -686,24 +728,24 @@ namespace IceEditor.Internal
                                     if (port.IsConnected)
                                     {
                                         // 连接状态
-                                        DiscSolid(0.3f, color);
+                                        DiscSolid(0.3f, colors);
                                     }
 
                                     if (AvailablePorts.Contains(port))
                                     {
                                         // 备选状态
-                                        DiscWire(0.2f, color * 0.8f);
-                                        DiscWire(0.8f, color * 0.7f);
+                                        DiscWire(0.2f, 0.8f, colors);
+                                        DiscWire(0.8f, 0.7f, colors);
 
                                         if (bHover)
                                         {
                                             // hover
-                                            DiscWire(0.8f, IceGUIUtility.CurrentThemeColor);
+                                            DiscWire(0.8f, 1, IceGUIUtility.CurrentThemeColor);
                                         }
                                         else
                                         {
                                             // 未hover
-                                            DiscWire(0.8f, IceGUIUtility.CurrentThemeColor * 0.7f);
+                                            DiscWire(0.8f, 1, IceGUIUtility.CurrentThemeColor * 0.7f);
                                         }
                                     }
                                     else
@@ -717,44 +759,77 @@ namespace IceEditor.Internal
                                 if (port.IsConnected)
                                 {
                                     // 连接状态
-                                    DiscSolid(0.3f, color);
+                                    DiscSolid(0.3f, colors);
                                 }
                                 else
                                 {
                                     // 普通
-                                    DiscWire(0.3f, color * 0.8f);
+                                    DiscWire(0.3f, 0.8f, colors);
                                 }
 
                                 if (bHover)
                                 {
                                     // hover
-                                    DiscWire(0.6f, color);
+                                    DiscWire(0.6f, 1, colors);
                                 }
                             }
 
 
                             // 画 Port 内圈
-                            void DiscWire(float radius, Color color)
+                            void DiscWire(float radius, float intensity, params Color[] colors)
                             {
                                 radius *= IceGUIUtility.PORT_RADIUS;
-                                using (HandlesColor(color)) Handles.DrawWireDisc(pos, Vector3.forward, radius);
+                                DiscWireRaw(radius, intensity, colors);
+
                                 // 柔化边缘
-                                color.a *= 0.4f;
-                                using (HandlesColor(color))
+                                float off = 0.3f / GUI.matrix[0];
+                                DiscWireRaw(radius + off, intensity * 0.4f, colors);
+                                DiscWireRaw(radius - off, intensity * 0.4f, colors);
+                            }
+                            void DiscWireRaw(float radius, float intensity, params Color[] colors)
+                            {
+                                var count = colors.Length;
+                                var arc = 1.0f / count;
+                                var arcAngle = arc * 360;
+                                var arcRad = arc * Mathf.PI * 2;
+                                for (int i = 0; i < count; ++i)
                                 {
-                                    float off = 0.3f / GUI.matrix[0];
-                                    Handles.DrawWireDisc(pos, Vector3.forward, radius + off);
-                                    Handles.DrawWireDisc(pos, Vector3.forward, radius - off);
+                                    var c = colors[i];
+                                    c.a *= intensity;
+                                    var rad = arcRad * i - Mathf.PI;
+                                    using (HandlesColor(c))
+                                    {
+                                        Handles.DrawWireArc(pos, Vector3.forward, new Vector3(Mathf.Cos(rad), Mathf.Sin(rad)), arcAngle, radius);
+                                    }
                                 }
                             }
                             // 画 Port
-                            void DiscSolid(float radius, Color color)
+                            void DiscSolid(float radius, params Color[] colors)
                             {
                                 radius *= IceGUIUtility.PORT_RADIUS;
-                                using (HandlesColor(color)) Handles.DrawSolidDisc(pos, Vector3.forward, radius);
+                                DiscSolidRaw(radius, 1, colors);
+
                                 // 柔化边缘
-                                color.a *= 0.4f;
-                                using (HandlesColor(color)) Handles.DrawWireDisc(pos, Vector3.forward, radius + 0.3f / GUI.matrix[0]);
+                                float off = 0.3f / GUI.matrix[0];
+                                DiscWireRaw(radius + off, 0.4f, colors);
+                                DiscWireRaw(radius - off, 0.4f, colors);
+                            }
+                            void DiscSolidRaw(float radius, float intensity, params Color[] colors)
+                            {
+                                var count = colors.Length;
+                                var arc = 1.0f / count;
+                                var arcAngle = arc * 360;
+                                var arcRad = arc * Mathf.PI * 2;
+                                for (int i = 0; i < count; ++i)
+                                {
+                                    var c = colors[i];
+                                    c.a *= intensity;
+                                    var rad = arcRad * i - Mathf.PI;
+                                    using (HandlesColor(c))
+                                    {
+                                        Handles.DrawSolidArc(pos, Vector3.forward, new Vector3(Mathf.Cos(rad), Mathf.Sin(rad)), arcAngle, radius);
+                                    }
+                                }
                             }
                         }
 
@@ -824,9 +899,9 @@ namespace IceEditor.Internal
             // 内部鼠标事件
             if (viewport.ClipRect.Contains(E.mousePosition))
             {
-                // 右键菜单
                 switch (E.type)
                 {
+                    // 右键菜单
                     case EventType.MouseDown:
                         if (E.button == 0 && GUIHotControl == 0)
                         {
@@ -851,6 +926,36 @@ namespace IceEditor.Internal
                             GUIHotControl = 0;
                             E.Use();
                         }
+                        break;
+                    // 拖拽
+                    case EventType.DragPerform:
+                        var objs = DragAndDrop.objectReferences;
+                        foreach (var o in objs)
+                        {
+                            if (o is GameObject go)
+                            {
+                                var comps = go.GetComponents<IceprintNodeComponent>();
+                                if (comps.Length > 0) selectedNodes.Clear();
+                                Vector2 offset = Vector2.zero;
+                                foreach (var comp in comps)
+                                {
+                                    var node = Graph.AddNode(new NodeMonoBehaviour()
+                                    {
+                                        targetType = comp.GetType(),
+                                    }, E.mousePosition + offset) as NodeMonoBehaviour;
+
+                                    node.target.Value = comp;
+
+                                    selectedNodes.Add(node);
+
+                                    offset += Vector2.one * 32;
+                                }
+                                if (comps.Length > 0) RecordForUndo();
+                            }
+                        }
+                        break;
+                    case EventType.DragUpdated:
+                        if (viewport.ClipRect.Contains(E.mousePosition)) DragAndDrop.visualMode = DragAndDropVisualMode.Link;
                         break;
                 }
             }
@@ -885,7 +990,10 @@ namespace IceEditor.Internal
 
             EditorApplication.playModeStateChanged -= OnPlayModeChange;
         }
-
+        void Update()
+        {
+            Repaint();
+        }
         void OnPlayModeChange(PlayModeStateChange mode)
         {
             Graph = null;
@@ -939,52 +1047,12 @@ namespace IceEditor.Internal
             }
             base.OnDebugGUI(position);
         }
-        int? baseStack = null;
-        void OnLog(string log)
-        {
-            string curLog = GetString("Console");
-
-            string prefix = "";
-            System.Diagnostics.StackTrace st = new();
-            int fc = st.FrameCount;
-            if (baseStack is null)
-            {
-                baseStack = fc;
-                log = log.Replace("\n", "");
-            }
-            else
-            {
-                int indent = fc - baseStack.Value;
-                if (indent > 0)
-                {
-                    for (int i = 0; i < indent; ++i) prefix += "┆       ".Color(GetColor(i));
-                    log = log.Replace("\n", $"\n{prefix}");
-                }
-            }
-
-            Color GetColor(int indent)
-            {
-                return (indent % 3) switch
-                {
-                    0 => Color.black,
-                    1 => Color.gray,
-                    2 => new Color(0.4f, 0.2f, 0.1f),
-                    _ => Color.red,
-                };
-            }
-
-            curLog += log;
-
-            SetString("Console", curLog);
-        }
         IceBinaryUtility.LogScope LOG
         {
             get
             {
                 if (!DebugMode) return null;
-                baseStack = null;
-                SetString("Console", "");
-                return new IceBinaryUtility.LogScope(OnLog);
+                return new IceBinaryUtility.LogScope(log => SetString("Console", log));
             }
         }
         #endregion

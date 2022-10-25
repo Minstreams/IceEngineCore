@@ -1,6 +1,7 @@
 ﻿using System;
-using IceEngine;
+using UnityEngine.SceneManagement;
 
+using IceEngine;
 using static IceEditor.IceGUI;
 using static IceEditor.IceGUIAuto;
 using Sys = Ice.Level;
@@ -12,7 +13,17 @@ namespace IceEditor.Internal
     {
         public override void OnToolBoxGUI()
         {
-            Label("Level");
+            var count = SceneManager.sceneCountInBuildSettings;
+            for (int i = 0; i < count; i++)
+            {
+                var s = SceneManager.GetSceneByBuildIndex(i);
+                using (Horizontal(StlGroup))
+                {
+                    Label(s.path);
+                    Space();
+                    Label(i.ToString());
+                }
+            }
         }
     }
 }

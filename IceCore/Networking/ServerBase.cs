@@ -47,6 +47,7 @@ namespace IceEngine.Networking.Framework
 
             DisconnectAll();
             CloseTCP();
+            CallDestroy();
 
             Log("Destroyed.");
         }
@@ -172,10 +173,15 @@ namespace IceEngine.Networking.Framework
                 isDestroyed = true;
 
                 ServerInstance.CallServerDisconnection(this);
+                ServerInstance.connections.Remove(this);
                 stream?.Close();
                 client?.Close();
                 Log("Server.connection Destroyed.");
-                receiveThread?.Abort();
+                try
+                {
+                    receiveThread?.Abort();
+                }
+                catch { }
             }
             public void SendRaw(byte[] data)
             {
@@ -278,12 +284,12 @@ namespace IceEngine.Networking.Framework
                 catch (SocketException ex)
                 {
                     ServerInstance.Log(ex);
-                    ServerInstance.CloseConnection(this);
+                    Destroy();
                 }
                 catch (Exception ex)
                 {
                     ServerInstance.Log(ex);
-                    ServerInstance.CloseConnection(this);
+                    Destroy();
                 }
             }
             void Log(string message) => ServerInstance.Log(message + $"(id:{NetId})");
@@ -292,8 +298,7 @@ namespace IceEngine.Networking.Framework
         #endregion
 
         #region Interface
-        public Connection GetConnection(int index) => connections[index];
-        public bool TcpOn => listener != null && listener.Pending();
+        public bool IsTcpOn => listener != null;
         public void OpenTCP()
         {
             if (listener != null)
@@ -317,16 +322,17 @@ namespace IceEngine.Networking.Framework
             listener = null;
             listenThread?.Abort();
         }
+        public int ConnectionCount => connections.Count;
+        public Connection GetConnection(int index) => connections[index];
+        public void CloseConnection(Connection conn)
+        {
+            conn.Destroy();
+        }
         public void DisconnectAll()
         {
             for (int i = connections.Count - 1; i >= 0; --i) connections[i].Destroy();
             connections?.Clear();
             Log("All connections closed!");
-        }
-        public void CloseConnection(Connection conn)
-        {
-            conn.Destroy();
-            connections.Remove(conn);
         }
         public void Broadcast(byte[] data) => connections.ForEach(conn => conn.Send(data));
         public void Broadcast(Pkt pkt) => Broadcast(IceBinaryUtility.ToBytes(pkt));

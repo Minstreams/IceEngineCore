@@ -1,4 +1,5 @@
-﻿using System;
+﻿using IceEngine.Framework;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -261,15 +262,72 @@ namespace IceEngine
         /// </summary>
         public class LogScope : IDisposable
         {
-            readonly Action<string> logAction;
+            public static string Log { get; set; }
+
+            int? baseStack = null;
+            void OnSingleLog(string log)
+            {
+                string prefix = "";
+                System.Diagnostics.StackTrace st = new();
+                int fc = st.FrameCount;
+                if (baseStack is null)
+                {
+                    baseStack = fc;
+                    log = log.Replace("\n", "");
+                }
+                else
+                {
+                    int indent = fc - baseStack.Value;
+                    if (indent > 0)
+                    {
+                        for (int i = 0; i < indent; ++i) prefix += "┆       ".Color(GetColor(i));
+                        log = log.Replace("\n", $"\n{prefix}");
+                    }
+                }
+
+                string GetColor(int indent)
+                {
+                    return (indent % 3) switch
+                    {
+                        0 => "#000",
+                        1 => "#999",
+                        2 => "#842",
+                        _ => "#F00",
+                    };
+                }
+
+                Log += log;
+            }
+            Action<string> onLog;
+
             public LogScope(Action<string> onLog)
             {
-                logAction = onLog;
-                Logger += logAction;
+                baseStack = null;
+                Log = "";
+                this.onLog = onLog;
+                Logger += OnSingleLog;
             }
             void IDisposable.Dispose()
             {
-                Logger -= logAction;
+                Logger -= OnSingleLog;
+                onLog?.Invoke(Log);
+            }
+        }
+        public class FallbackScope : IDisposable
+        {
+            public static Func<Type, object, object, (Type, object)> onFallback;
+            public static (Type, object) Fallback(Type type, object instance, object userData)
+            {
+                if (onFallback != null) return onFallback(type, instance, userData);
+                return (type, instance);
+            }
+            public FallbackScope(Func<Type, object, object, (Type, object)> fallback)
+            {
+                onFallback = fallback;
+            }
+            void IDisposable.Dispose()
+            {
+                onFallback = null;
             }
         }
 
@@ -546,6 +604,8 @@ namespace IceEngine
                 }
                 else if (type.IsClass || type.IsValueType)
                 {
+                    bool hasExtraInfo = withExtraInfo && !type.IsValueType;
+
                     Log($"{(baseType ?? type).Name.Color("#4CA")} {name.Color("#AF0")} = {obj}");
 
                     Log("\n{       ");
@@ -555,7 +615,16 @@ namespace IceEngine
                         else if (type.IsPacketType())
                         {
                             buffer.AddHeader(FieldBlockHeaderDefinitions.packetField);
-                            buffer.AddFieldBlock(IceCoreUtility.PacketTypeToHashCode(type), false, "typeHash");
+                            ushort hashcode;
+                            if (IceCoreUtility.iPacketSerializationHashcode.IsAssignableFrom(type))
+                            {
+                                hashcode = ((IPacketSerializationHashcode)obj).GetHashcode();
+                            }
+                            else
+                            {
+                                hashcode = IceCoreUtility.PacketTypeToHashCode(type);
+                            }
+                            buffer.AddFieldBlock(hashcode, false, "typeHash");
                         }
                         else
                         {
@@ -564,7 +633,7 @@ namespace IceEngine
                         }
                     }
                     string extraInfoColor = "#C5F";
-                    if (withExtraInfo)
+                    if (hasExtraInfo)
                     {
                         buffer.Add(0);
                         buffer.Add(0);
@@ -601,7 +670,7 @@ namespace IceEngine
                         buffer.AddFieldBlock(fobj, fType.HasHeader(), f.Name, fType, withExtraInfo);
                     }
 
-                    if (withExtraInfo)
+                    if (hasExtraInfo)
                     {
                         int length = buffer.Count - mark;
                         if (length > ushort.MaxValue) throw new OverflowException($"Length of block overflow! | {(baseType ?? type).Name.Color("#4CA")} {name.Color("#AF0")}");
@@ -753,7 +822,15 @@ namespace IceEngine
         }
         static object ReadValueOfType(this byte[] bytes, ref int offset, Type type, object instance = null, bool withExtraInfo = false)
         {
-            if (type is null) return null;
+            if (type is null)
+            {
+                if (withExtraInfo)
+                {
+                    ushort blockLength = bytes.ReadUShort(ref offset);
+                    offset += blockLength;
+                }
+                return null;
+            }
             if (type.IsNullable()) type = type.GetGenericArguments()[0];
             if (type == TypeDefinitions.byteType) return bytes.ReadByte(ref offset);
             if (type == TypeDefinitions.sbyteType) return bytes.ReadSByte(ref offset);
@@ -837,6 +914,13 @@ namespace IceEngine
 
             if (headerToTypeMap.TryGetValue(header, out Type t)) return bytes.ReadValueOfType(ref offset, t);
 
+            if (header == FieldBlockHeaderDefinitions.packetField)
+            {
+                var hash = bytes.ReadUShort(ref offset);
+                (var tFallback, var ins) = FallbackScope.Fallback(IceCoreUtility.HashCodeToPacketType(hash), instance, hash);
+                return bytes.ReadValueOfType(ref offset, tFallback, ins, withExtraInfo);
+            }
+
             return header switch
             {
                 FieldBlockHeaderDefinitions.typeField => bytes.ReadType(ref offset),
@@ -845,16 +929,16 @@ namespace IceEngine
                 FieldBlockHeaderDefinitions.arrayField or
                 FieldBlockHeaderDefinitions.collectionField or
                 FieldBlockHeaderDefinitions.baseClassField => bytes.ReadValueOfType(ref offset, baseType, instance, withExtraInfo),
-                FieldBlockHeaderDefinitions.packetField => bytes.ReadValueOfType(ref offset, IceCoreUtility.HashCodeToPacketType(bytes.ReadUShort(ref offset)), instance, withExtraInfo),
-                _ => throw new Exception($"Not supported header! {header}"),
+                _ => throw new Exception($"Not supported header! {header:X2}"),
             };
         }
         static void ReadObjectOverride(this byte[] bytes, ref int offset, object obj, Type type = null, bool withExtraInfo = false)
         {
             if (type is null) type = obj.GetType();
+            bool hasExtraInfo = withExtraInfo && !type.IsValueType;
 
             ushort blockLength = ushort.MaxValue;
-            if (withExtraInfo)
+            if (hasExtraInfo)
             {
                 blockLength = bytes.ReadUShort(ref offset);
             }
@@ -894,9 +978,11 @@ namespace IceEngine
                     f.SetValue(obj, bytes.ReadValueOfType(ref offset, fType, null, withExtraInfo));
                 }
 
-                if (withExtraInfo)
+                if (hasExtraInfo)
                 {
+                    // 读完直接返回
                     if (offset - mark == blockLength) break;
+                    // 异常情况超出紧急返回
                     if (offset - mark > blockLength)
                     {
                         offset = mark + blockLength;
@@ -905,7 +991,8 @@ namespace IceEngine
                 }
             }
 
-            if (withExtraInfo && offset - mark < blockLength)
+            // 没读完补上
+            if (hasExtraInfo && offset - mark < blockLength)
             {
                 offset = mark + blockLength;
             }

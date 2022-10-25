@@ -1,18 +1,15 @@
-﻿using UnityEditor;
+﻿using System;
 using UnityEngine;
+using UnityEditor;
 
 using IceEngine;
-using IceEngine.IceprintNodes;
-using IceEngine.Internal;
-using IceEditor.Framework;
-using static IceEditor.IceGUI;
-using static IceEditor.IceGUIAuto;
 using IceEngine.Framework;
-using System;
+using IceEngine.IceprintNodes;
+using static IceEditor.IceGUI;
 
 namespace IceEditor.Internal
 {
-    public class NodeMonoBehaviourDrawer : IceprintNodeDrawer<NodeMonoBehaviour>
+    public class NodeMonoBehaviourDrawer : Framework.IceprintNodeDrawer<NodeMonoBehaviour>
     {
         public override GUIStyle StlGraphNodeBackground => _stlGraphNodeBackground?.Check() ?? (_stlGraphNodeBackground = new GUIStyle("NotificationBackground") { overflow = new RectOffset(8, 8, 8, 8), richText = true, }); GUIStyle _stlGraphNodeBackground;
         public override string GetDisplayName(NodeMonoBehaviour node)
@@ -90,7 +87,11 @@ namespace IceEditor.Internal
         public override void OnSelect(NodeMonoBehaviour node)
         {
             var target = node.target.Value;
-            if (target != null) Selection.activeObject = target;
+            if (target != null)
+            {
+                Selection.activeObject = target;
+                EditorGUIUtility.PingObject(target);
+            }
         }
     }
 }

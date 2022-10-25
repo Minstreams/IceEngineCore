@@ -5,11 +5,6 @@ namespace IceEngine
 {
     #region Class
     /// <summary>
-    /// 标记使用自定义Drawer
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
-    public sealed class HasPropertyDrawerAttribute : Attribute { }
-    /// <summary>
     /// 自定义主题颜色
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
@@ -51,8 +46,13 @@ namespace IceEngine
     [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
     public sealed class GroupAttribute : Attribute
     {
+        public string Key { get; private set; }
         public string Label { get; private set; }
-        public GroupAttribute(string label = null) => Label = label;
+        public GroupAttribute(string key = null, string label = null)
+        {
+            Key = key;
+            Label = label;
+        }
     }
     #endregion
 

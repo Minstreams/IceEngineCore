@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 
 using UnityEngine;
+using UnityEngine.UIElements;
 using UnityEditor;
 
 using IceEngine;
@@ -14,8 +16,6 @@ using IceEditor.Framework.Internal;
 using IceEditor.Internal;
 using static IceEditor.IceGUI;
 using static IceEditor.IceGUIAuto;
-using UnityEngine.UIElements;
-using System.Linq.Expressions;
 
 namespace IceEditor
 {
@@ -46,9 +46,25 @@ namespace IceEditor
             {
                 if (_typesWithCustomDrawer == null)
                 {
+                    var tDrawer = typeof(CustomPropertyDrawer);
+                    var fType = tDrawer.GetField("m_Type", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var param = Expression.Parameter(tDrawer);
+                    Func<CustomPropertyDrawer, Type> getTypeOfPropertyDrawer =
+                        Expression.Lambda<Func<CustomPropertyDrawer, Type>>(
+                            Expression.Field(param, fType),
+                            param
+                            ).Compile();
+
                     _typesWithCustomDrawer = new HashSet<Type>();
-                    var candidates = TypeCache.GetTypesWithAttribute<HasPropertyDrawerAttribute>();
-                    foreach (var c in candidates) _typesWithCustomDrawer.Add(c);
+
+                    var drawers = TypeCache.GetTypesWithAttribute<CustomPropertyDrawer>();
+                    foreach (var d in drawers)
+                    {
+                        var attr = d.GetCustomAttribute<CustomPropertyDrawer>();
+                        var t = getTypeOfPropertyDrawer(attr);
+
+                        if (!t.IsSystemType()) _typesWithCustomDrawer.Add(t);
+                    }
                 }
                 return _typesWithCustomDrawer;
             }
@@ -120,7 +136,7 @@ namespace IceEditor
             public float? labelWidth = null;
             public Color? themeColor = null;
             public Dictionary<string, string> labelMap = new();
-            public Dictionary<string, string> groupMap = new();
+            public Dictionary<string, (string, string)> groupMap = new();
             public HashSet<string> runtimeConstSet = new();
             public List<(string text, Action<object> action)> buttonList = new();
 
@@ -166,7 +182,7 @@ namespace IceEditor
 
                     // 处理 Group
                     {
-                        if (f.GetCustomAttribute<GroupAttribute>() is not null and var a) groupMap.Add(path, a.Label);
+                        if (f.GetCustomAttribute<GroupAttribute>() is not null and var a) groupMap.Add(path, (a.Key, a.Label));
                     }
 
                     // 处理 RuntimeConst
@@ -180,16 +196,10 @@ namespace IceEditor
 
                     // 生成子结构
                     var tt = f.FieldType;
-                    if (!IsSystemType(tt) && tt.GetCustomAttribute<SerializableAttribute>() is not null && !tt.HasCustomDrawer())
+                    if (!tt.IsSystemType() && tt.GetCustomAttribute<SerializableAttribute>() is not null && !tt.HasCustomDrawer())
                     {
                         childrenMap.Add(path, GetInfo(tt));
                     }
-                }
-
-                static bool IsSystemType(Type t)
-                {
-                    var ns = t.GetRootType().Namespace;
-                    return ns != null && (ns.StartsWith("System") || ns.StartsWith("Unity"));
                 }
 
                 // 只对根类型处理Methods
@@ -223,13 +233,13 @@ namespace IceEditor
                     scopeV = null;
                 }
             }
-            void DoGroup(string label = null)
+            void DoGroup(string key = null, string label = null)
             {
                 EndGroup();
                 scopeV = GROUP;
-                if (!label.IsNullOrEmpty())
+                if (!key.IsNullOrEmpty())
                 {
-                    scopeF = SectionFolder(label);
+                    scopeF = SectionFolder(key, labelOverride: label);
                 }
             }
 
@@ -241,7 +251,7 @@ namespace IceEditor
                 if (!info.labelMap.TryGetValue(path, out string label)) label = itr.displayName;
 
                 // 处理 Group
-                if (info.groupMap.TryGetValue(path, out string group)) DoGroup(group);
+                if (info.groupMap.TryGetValue(path, out var group)) DoGroup(group.Item1, group.Item2);
 
                 // 处理 RuntimeConst
                 bool disabled = info.runtimeConstSet.Contains(path) && EditorApplication.isPlayingOrWillChangePlaymode;
@@ -426,6 +436,60 @@ namespace IceEditor
         /// </summary>
         [SettingsProvider]
         static SettingsProvider GetIceEditorSettingProvider() => GetIceSettingProvider<IceEditorSetting>("IceEditor", "EditorSetting");
+        static void OnIceSettingGUI(string title, SerializedObject so)
+        {
+            var c = so.FindProperty("themeColor")?.colorValue ?? CurrentThemeColor;
+
+            using (GROUP)
+            {
+                using (ThemeColor(c))
+                {
+                    using (HORIZONTAL)
+                    {
+                        Label(title.Color(CurrentThemeColor), StlBoldLabel);
+                        if (Button(GUIContent.none, StlPanelOptions))
+                        {
+                            GenericMenu gm = new();
+                            if (so.targetObject is IceSetting i)
+                            {
+                                // IceSetting
+                                if (i.DefaultThemeColor != c)
+                                {
+                                    gm.AddItem(new GUIContent("还原颜色"), false, () =>
+                                    {
+                                        i.themeColor = i.DefaultThemeColor;
+                                        so.Update();
+                                    });
+                                    gm.AddItem(new GUIContent("锁定颜色"), false, () =>
+                                    {
+                                        AssetDatabase.SaveAssets();
+                                        static string GetSubSystemSettingPath(string name)
+                                        {
+                                            if (name == "Global") return "Assets/IceEngine/IceRuntime/Core/Settings/SettingGlobal.cs";
+                                            return $"{IceToolBox.SubSystemFolder}/{name}/Runtime/Setting{name}.cs";
+                                        }
+                                        var path = GetSubSystemSettingPath(title);
+                                        IceCoreUtility.WriteToFileRegion("ThemeColor", IceToolBox.GetDefaultThemeColorCode(c), path);
+                                        AssetDatabase.ImportAsset(path);
+                                    });
+                                }
+                                else
+                                {
+                                    gm.AddDisabledItem(new GUIContent("还原颜色"));
+                                    gm.AddDisabledItem(new GUIContent("锁定颜色"), true);
+                                }
+                            }
+                            else
+                            {
+                                // IceEditorSetting
+                            }
+                            gm.ShowAsContext();
+                        }
+                    }
+                    DrawSerializedObject(so);
+                }
+            }
+        }
         /// <summary>
         /// 在Project窗口部署某一配置类所有的子类实例
         /// </summary>
@@ -437,7 +501,7 @@ namespace IceEditor
             Type baseSettingType = typeof(TSetting);
 
             // soMap
-            Dictionary<string, (SerializedObject, Color?)> iceSettingSOMap = new();
+            Dictionary<string, SerializedObject> iceSettingSOMap = new();
 
             // 从所有相关的Assembly中收集数据
             var settingCollection = TypeCache.GetTypesDerivedFrom<TSetting>();
@@ -449,8 +513,7 @@ namespace IceEditor
                 var title = settingType.Name.StartsWith(prefix) ? settingType.Name[prefix.Length..] : settingType.Name;
                 var setting = settingType.BaseType.GetProperty("Setting", settingType).GetValue(null) as TSetting;
                 var so = new SerializedObject(setting);
-                var color = so.FindProperty("themeColor")?.colorValue;
-                iceSettingSOMap.Add(title, (so, color));
+                iceSettingSOMap.Add(title, so);
             }
 
             // 选择的项目字段
@@ -464,32 +527,24 @@ namespace IceEditor
                 {
                     if (selectedSetting == null)
                     {
-                        foreach ((string title, (SerializedObject so, Color? color)) in iceSettingSOMap)
+                        foreach ((string title, SerializedObject so) in iceSettingSOMap)
                         {
-                            using (GROUP) using (color == null ? null : ThemeColor(color.Value))
-                            {
-                                Header(title);
-                                DrawSerializedObject(so);
-                            }
+                            OnIceSettingGUI(title, so);
                         }
                         return;
                     }
                     else
                     {
-                        (SerializedObject so, Color? color) = iceSettingSOMap[selectedSetting];
-                        using (GROUP) using (color == null ? null : ThemeColor(color.Value))
-                        {
-                            Header(selectedSetting);
-                            DrawSerializedObject(so);
-                        }
+                        SerializedObject so = iceSettingSOMap[selectedSetting];
+                        OnIceSettingGUI(selectedSetting, so);
                     }
                 },
                 titleBarGuiHandler = () =>
                 {
-                    foreach ((string title, (_, Color? color)) in iceSettingSOMap)
+                    foreach ((string title, var so) in iceSettingSOMap)
                     {
                         string t = title;
-                        Color c = color ?? CurrentThemeColor;
+                        Color c = so.FindProperty("themeColor")?.colorValue ?? CurrentThemeColor;
                         //using (color == null ? null : ThemeColor(color.Value))
                         if (selectedSetting == title || selectedSetting == null) t = t.Color(c);
                         if (IceButton(t)) selectedSetting = selectedSetting == title ? null : title;
@@ -502,6 +557,7 @@ namespace IceEditor
         #region IceGraphPort
         public const float PORT_SIZE = 16;
         public const float PORT_RADIUS = PORT_SIZE * 0.5f;
+        public const double PORT_LINE_FREQUENCY = 2;
 
         public static Vector2 GetPos(this IceprintPort port)
         {
@@ -533,6 +589,50 @@ namespace IceEditor
             if (E.type != EventType.Repaint) return;
 
             Vector2 center = 0.5f * (position + target);
+            Color centerColor = 0.5f * (startColor + endColor);
+
+            float tangentLength = Mathf.Clamp(Vector2.Dot(tangent, center - position) * 0.6f, 8, 32);
+            Vector2 tangentPoint = position + tangent * tangentLength;
+
+            DrawBezierLine(position, center, tangentPoint, startColor, centerColor, width, edge);
+        }
+        public static void DrawPortLine(Vector2 position, Vector2 target, Vector2 tangent, Color[] startColors, Color[] endColors, float width = 1.5f, float edge = 1)
+        {
+            if (E.type != EventType.Repaint) return;
+
+            Vector2 center = 0.5f * (position + target);
+
+            double t = EditorApplication.timeSinceStartup * PORT_LINE_FREQUENCY;
+            int cc = startColors.Length * endColors.Length;
+            t /= cc;
+            t = (t - Math.Floor(t)) * cc;
+            float tf = (float)t;
+
+            Color startColor;
+            {
+                var count = startColors.Length;
+                int tFloor = Mathf.FloorToInt(tf);
+                int tCeil = Mathf.CeilToInt(tf);
+                float f = tf - tFloor;
+                tFloor %= count;
+                tCeil %= count;
+                f *= f;
+                f *= f;
+                startColor = Color.Lerp(startColors[tFloor], startColors[tCeil], f);
+            }
+            Color endColor;
+            {
+                var count = endColors.Length;
+                int tFloor = Mathf.FloorToInt(tf);
+                int tCeil = Mathf.CeilToInt(tf);
+                float f = tf - tFloor;
+                tFloor %= count;
+                tCeil %= count;
+                f *= f;
+                f *= f;
+                endColor = Color.Lerp(endColors[tFloor], endColors[tCeil], f);
+            }
+
             Color centerColor = 0.5f * (startColor + endColor);
 
             float tangentLength = Mathf.Clamp(Vector2.Dot(tangent, center - position) * 0.6f, 8, 32);
@@ -829,14 +929,13 @@ namespace IceEditor
             try
             {
                 selectionRect = selectionRect.MoveEdge(right: -16);
-                using (AreaRaw(selectionRect)) using (HORIZONTAL)
+                using (Area(selectionRect)) using (HORIZONTAL)
                 {
                     Space();
                     foreach ((Type t, var callback) in hierarchyItemGUICallbackMap)
                     {
-                        var comp = go.GetComponent(t);
-                        if (comp == null) continue;
-                        callback?.Invoke(comp, selectionRect);
+                        var comps = go.GetComponents(t);
+                        foreach (var comp in comps) callback?.Invoke(comp, selectionRect);
                     }
                 }
             }

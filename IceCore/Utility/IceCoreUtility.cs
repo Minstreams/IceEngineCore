@@ -194,13 +194,15 @@ namespace IceEngine
             typeof(Action<,,,,,,,,,,,,,,,>),
         };
 
+        public static readonly Type objectType = typeof(object);
+        public static readonly Type nullableType = typeof(Nullable<>);
+        public static readonly Type iCollectionType = typeof(ICollection);
+        public static readonly Type delegateType = typeof(Delegate);
+        public static readonly Type icePacketBaseType = typeof(IcePacketBase);
+        public static readonly Type icePacketAttributeType = typeof(IcePacketAttribute);
+        public static readonly Type iPacketSerializationHashcode = typeof(IPacketSerializationHashcode);
+
         static readonly Dictionary<string, Type> _typeCacheMap = new();
-        static readonly Type objectType = typeof(object);
-        static readonly Type nullableType = typeof(Nullable<>);
-        static readonly Type iCollectionType = typeof(ICollection);
-        static readonly Type delegateType = typeof(Delegate);
-        static readonly Type icePacketBaseType = typeof(IcePacketBase);
-        static readonly Type icePacketAttributeType = typeof(IcePacketAttribute);
         static readonly HashSet<Type> serializableCollection = new()
         {
             GetType("UnityEngine.Vector2"),
@@ -338,7 +340,7 @@ namespace IceEngine
         public static Type HashCodeToPacketType(ushort hash)
         {
             if (Hash2PktMap.TryGetValue(hash, out var type)) return type;
-            throw new Exception($"{hash} is not a packet hash!");
+            return null;
         }
         public static ushort PacketTypeToHashCode(Type type)
         {
@@ -348,8 +350,46 @@ namespace IceEngine
         public static bool IsPacketType(this Type type) => Pkt2HashMap.ContainsKey(type);
         public static bool IsNotNullPacket(this Type type) => PktNotNullSet.Contains(type);
         public static bool IsSerialzableType(this Type type) => type.IsSerializable || serializableCollection.Contains(type);
+        public static bool IsSystemType(this Type type)
+        {
+            var ns = type.GetRootType().Namespace;
+            return ns != null && (ns.StartsWith("System") || ns.StartsWith("Unity"));
+        }
         #endregion
 
         #endregion
+
+        /// <summary>
+        /// 将多行字符串写入一个文件的一个region块中<br/>
+        /// 文件path的获取可参考 <see cref="System.Runtime.CompilerServices.CallerFilePathAttribute"/>
+        /// </summary>
+        /// <param name="regionName">region块的名字</param>
+        /// <param name="content">字符串，每个元素是一行的内容，不要开头的空格和制表符</param>
+        /// <param name="filePath"><see cref="System.IO.File"/> 能识别的文件路径</param>
+        public static bool WriteToFileRegion(string regionName, string content, [System.Runtime.CompilerServices.CallerFilePath] string filePath = null)
+        {
+#if UNITY_EDITOR
+            string[] lines = content.Split('\n');
+
+            Regex regRegion = new($"[\r\n]+([ \t]*)#region {regionName}([\r\n]+)[\\w\\W]*?#endregion", RegexOptions.Multiline);
+            Regex regClass = new("[\r\n]+([ \t]*)(public |internal |private )?class [\\w]+ ?: ?\\w+[\r\n]*[ \t]*\\{[ \t]*([\r\n]+)", RegexOptions.Multiline);
+
+            var fileContent = File.ReadAllText(filePath);
+
+            if (regRegion.IsMatch(fileContent))
+            {
+                fileContent = regRegion.Replace(fileContent, $"$2$1#region {regionName}$2$1{string.Join("$2$1", lines)}$2$1#endregion", 1);
+                File.WriteAllText(filePath, fileContent);
+                return true;
+            }
+            else if (regClass.IsMatch(fileContent))
+            {
+                fileContent = regClass.Replace(fileContent, $"$0$1    #region {regionName}$3$1    {string.Join("$3$1    ", lines)}$3$1    #endregion$3$3", 1);
+                File.WriteAllText(filePath, fileContent);
+                return true;
+            }
+#endif
+            return false;
+        }
     }
 }
