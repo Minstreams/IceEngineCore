@@ -43,6 +43,13 @@ using IceEngine;
 using IceEditor;
 
 ";
+        readonly static string guiUsingCode =
+@"using IceEditor.Framework;
+
+using static IceEditor.IceGUI;
+using static IceEditor.IceGUIAuto;
+
+";
 
         [MenuItem("IceEngine/C#热指令")]
         public static void OpenWindow() => GetWindow<HotScriptBox>();
@@ -182,6 +189,25 @@ using IceEditor;
             Setting.scripts.Add(CurScript = new HotScriptItem());
             Setting.Save();
         }
+
+        void RemoveScriptAt(int i)
+        {
+            CallNextFrame(() =>
+            {
+                Setting.scripts.RemoveAt(i);
+                int j = i;
+                if (j >= Setting.scripts.Count) --j;
+                if (j >= 0) CurScript = Setting.scripts[j];
+                else CurScript = null;
+                Setting.Save();
+            });
+        }
+
+        Action updateAction = null;
+        void CallNextFrame(Action action)
+        {
+            updateAction += action;
+        }
         #endregion
 
         #region Life Circle
@@ -194,6 +220,11 @@ using IceEditor;
         }
         private void Update()
         {
+            if (updateAction != null)
+            {
+                updateAction();
+                updateAction = null;
+            }
             Repaint();
         }
         #endregion
@@ -209,41 +240,38 @@ using IceEditor;
 
             // 1. 预处理代码
             var codeBuilder = new StringBuilder();
+
+            void AppendMatch(Regex reg)
+            {
+                code = reg.Replace(code, m =>
+                {
+                    codeBuilder.Append(m.Value);
+                    return string.Empty;
+                });
+            }
+
             codeBuilder.Append(baseUsingCode);
-            if (bGUI)
-            {
-                codeBuilder.Append(
-@"using IceEditor.Framework;
-
-using static IceEditor.IceGUI;
-using static IceEditor.IceGUIAuto;
-
-");
-            }
-            code = usingReg.Replace(code, m =>
-            {
-                codeBuilder.Append(m.Value);
-                return string.Empty;
-            });
+            AppendMatch(usingReg);
 
             if (bGUI)
             {
+                codeBuilder.Append(guiUsingCode);
                 codeBuilder.AppendLine($"namespace {NamespaceName}{{\npublic class {ClassName} : IceEditorWindow {{\nprotected override void OnWindowGUI(Rect position)\n{{");
-            }
-            else
-            {
-                codeBuilder.AppendLine($"namespace {NamespaceName}{{\npublic class {ClassName}{{\npublic static void {FuncName}()\n{{");
-            }
-            codeBuilder.AppendLine(code);
-            codeBuilder.AppendLine("}");
-            if (bGUI)
-            {
+                codeBuilder.AppendLine(code);
+                codeBuilder.AppendLine("}");
                 codeBuilder.AppendLine($"public static void {FuncName}() => GetWindow<{ClassName}>();");
                 codeBuilder.AppendLine("protected override Color DefaultThemeColor => new Color(0.8f, 0.2f, 0.5f);");
                 string guiTitle = title.IsNullOrWhiteSpace() ? "临时窗口" : title;
                 codeBuilder.AppendLine($"protected override string Title => \"{guiTitle}\";");
+                codeBuilder.Append("}}");
             }
-            codeBuilder.Append("}}");
+            else
+            {
+                codeBuilder.AppendLine($"namespace {NamespaceName}{{\npublic class {ClassName}{{\npublic static void {FuncName}()\n{{");
+                codeBuilder.AppendLine(code);
+                codeBuilder.AppendLine("}");
+                codeBuilder.Append("}}");
+            }
 
             code = codeBuilder.ToString();
 
@@ -283,6 +311,187 @@ using static IceEditor.IceGUIAuto;
             }
         }
         public void Compile() => Compile(CurScript.code, CurScript.type == HotScriptType.GUI, CurScript.name);
+        #endregion
+
+        #region GUI
+        readonly static Regex jsonReg = new("^\\{\\r?\\n\\s*\"name\":[\\w\\W]*\\}\\s*$", RegexOptions.Multiline);
+        void BoxScriptTab(int i)
+        {
+            var script = Setting.scripts[i];
+            var name = script.GetDisplayName(i);
+            bool selected = CurScript == script;
+            if (selected)
+            {
+                var stlOn = i == 0 ? StlScriptTabOnFirst : StlScriptTabOn;
+                StyleBox(GetRect(TempContent(name), stlOn), stlOn, name, on: true);
+                var rBtn = GetRect(1, 16);
+                if (GUI.Button(rBtn.MoveEdge(left: -15).Move(-4, 2), string.Empty, "WinBtnClose"))
+                {
+                    RemoveScriptAt(i);
+                }
+            }
+            else
+            {
+                if (ToggleButton(name, false, StlScriptTab)) CurScript = script;
+            }
+        }
+        List<int> lineCounts = new();
+        protected override void OnWindowGUI(Rect position)
+        {
+            // 计算lineCounts
+            {
+                lineCounts.Clear();
+                float maxWidth = Mathf.Max(16, EditorGUIUtility.currentViewWidth - 40);
+                float width = 0;
+                int count = 0;
+                for (int i = 0; i < Setting.scripts.Count; ++i)
+                {
+                    var script = Setting.scripts[i];
+                    var name = script.GetDisplayName(i);
+                    var w = StlScriptTab.CalcSize(TempContent(name)).x;
+
+                    width += w;
+                    ++count;
+
+                    if (width > maxWidth)
+                    {
+                        if (count > 1)
+                        {
+                            lineCounts.Add(count - 1);
+
+                            width = w;
+                            count = 1;
+                        }
+                        else
+                        {
+                            lineCounts.Add(count);
+
+                            width = 0;
+                            count = 0;
+                        }
+                    }
+                }
+
+                if (count > 0)
+                {
+                    lineCounts.Add(count);
+                }
+            }
+
+            // 画Tab
+            {
+                int i = 0;
+                for (int l = 0; l < lineCounts.Count; l++)
+                {
+                    int lineCount = lineCounts[l];
+                    using (Horizontal(StlScriptTabDock))
+                    {
+                        for (int k = 0; k < lineCount; ++k)
+                        {
+                            BoxScriptTab(i++);
+                        }
+                        Space();
+                        if (l == lineCounts.Count - 1 && Button(string.Empty, "OL Plus", GUILayout.ExpandWidth(false)))
+                        {
+                            AddScript();
+                        }
+                    }
+                }
+            }
+
+            var r = position.MoveEdge(top: lineCounts.Count * 24);
+            using (SubArea(r, out var rMain, out var rSub, "MainArea", 280, IceGUIDirection.Left, "dragtab scroller prev"))
+            {
+                using (Area(rMain)) using (GUICHECK)
+                {
+                    var code = CurScript.code = GUILayout.TextArea(CurScript.code, StlCodeBox);
+                    if (GUIChanged)
+                    {
+                        Setting.Save();
+                        if (jsonReg.IsMatch(code))
+                        {
+                            PasteCurScript(code);
+                        }
+                    }
+                }
+                using (Area(rSub)) using (LabelWidth(32))
+                {
+                    using (GUICHECK)
+                    {
+                        TextField("名字", ref CurScript.name);
+                        EnumPopup("类型", ref CurScript.type);
+
+                        if (GUIChanged) Setting.Save();
+                    }
+                    Space(4);
+
+                    // 搜索框
+                    using (BOX)
+                    {
+                        using (HORIZONTAL)
+                        {
+
+                            Label("程序集");
+                            SearchField(displayMode switch
+                            {
+                                AssemblyDisplayMode.Name => nameAssemblyMap.Keys,
+                                AssemblyDisplayMode.FullName => fullNameAssemblyMap.Keys,
+                                _ => nameAssemblyMap.Values,
+                            }, ref filteredResult);
+
+                            using (GUICHECK)
+                            {
+                                EnumPopup(ref displayMode, GUILayout.Width(64));
+                                if (GUIChanged) filteredResult = null;
+                            }
+                        }
+
+
+                        // 在这显示
+                        using (ScrollInvisible("AssemblyList"))
+                        {
+                            // 显示样式列表
+                            if (filteredResult != null)
+                                foreach ((var displayName, var name) in filteredResult)
+                                {
+                                    string location = displayMode switch
+                                    {
+                                        AssemblyDisplayMode.Name => nameAssemblyMap[name],
+                                        AssemblyDisplayMode.FullName => fullNameAssemblyMap[name],
+                                        _ => name,
+                                    };
+
+                                    using (GUICHECK) using (Disable(defaultAssemblyLocations.Contains(location)))
+                                    {
+                                        var val = _ToggleLeft(curAssemlySet.Contains(location), displayName, StlAssemblyToggle);
+                                        if (GUIChanged)
+                                        {
+                                            if (val)
+                                            {
+                                                curAssemlySet.Add(location);
+                                                CurScript.assemblies.Add(locationAssemblyMap[location]);
+                                            }
+                                            else
+                                            {
+                                                curAssemlySet.Remove(location);
+                                                CurScript.assemblies.Remove(locationAssemblyMap[location]);
+                                            }
+                                            Setting.Save();
+                                        }
+                                    }
+                                }
+                        }
+                    }
+
+                    using (HORIZONTAL)
+                    {
+                        if (Button("复制")) CopyCurScript();
+                        if (Button("粘贴")) PasteCurScript(GUIUtility.systemCopyBuffer);
+                    }
+                    if (Button("运行")) Compile();
+                }
+            }
+        }
         #endregion
 
         #region ReplaceTest
@@ -447,140 +656,5 @@ using static IceEditor.IceGUIAuto;
         }
         #endregion
 
-
-        readonly static Regex jsonReg = new("^\\{\\r?\\n\\s*\"name\":[\\w\\W]*\\}\\s*$", RegexOptions.Multiline);
-        protected override void OnWindowGUI(Rect position)
-        {
-            // Dock
-            using (Horizontal(StlScriptTabDock))
-            {
-                for (int i = 0; i < Setting.scripts.Count; ++i)
-                {
-                    var script = Setting.scripts[i];
-                    using (HORIZONTAL)
-                    {
-                        var name = script.name.IsNullOrEmpty() ? $"指令{i}" : script.name;
-                        bool selected = CurScript == script;
-                        if (selected)
-                        {
-                            var stlOn = i == 0 ? StlScriptTabOnFirst : StlScriptTabOn;
-                            StyleBox(GetRect(TempContent(name), stlOn), stlOn, name, on: true);
-                            var rBtn = GetRect(1, 16);
-                            if (GUI.Button(rBtn.MoveEdge(left: -15).Move(-4, 2), string.Empty, "WinBtnClose"))
-                            {
-                                Setting.scripts.RemoveAt(i);
-                                int j = i;
-                                if (j >= Setting.scripts.Count) --j;
-                                if (j >= 0) CurScript = Setting.scripts[j];
-                                else CurScript = null;
-                                Setting.Save();
-                                --i;
-                            }
-                        }
-                        else
-                        {
-                            if (ToggleButton(name, false, StlScriptTab)) CurScript = script;
-                        }
-                    }
-                }
-                Space();
-                if (Button(string.Empty, "OL Plus", GUILayout.ExpandWidth(false))) AddScript();
-            }
-
-            var r = position.MoveEdge(top: 24);
-            using (SubArea(r, out var rMain, out var rSub, "MainArea", 280, IceGUIDirection.Left, "dragtab scroller prev"))
-            {
-                using (Area(rMain)) using (GUICHECK)
-                {
-                    var code = CurScript.code = GUILayout.TextArea(CurScript.code, StlCodeBox);
-                    if (GUIChanged)
-                    {
-                        Setting.Save();
-                        if (jsonReg.IsMatch(code))
-                        {
-                            PasteCurScript(code);
-                        }
-                    }
-
-                    GUI_Test();
-                }
-                using (Area(rSub)) using (LabelWidth(32))
-                {
-                    using (GUICHECK)
-                    {
-                        TextField("名字", ref CurScript.name);
-                        EnumPopup("类型", ref CurScript.type);
-
-                        if (GUIChanged) Setting.Save();
-                    }
-                    Space(4);
-
-                    // 搜索框
-                    using (BOX)
-                    {
-                        using (HORIZONTAL)
-                        {
-
-                            Label("程序集");
-                            SearchField(displayMode switch
-                            {
-                                AssemblyDisplayMode.Name => nameAssemblyMap.Keys,
-                                AssemblyDisplayMode.FullName => fullNameAssemblyMap.Keys,
-                                _ => nameAssemblyMap.Values,
-                            }, ref filteredResult);
-
-                            using (GUICHECK)
-                            {
-                                EnumPopup(ref displayMode, GUILayout.Width(64));
-                                if (GUIChanged) filteredResult = null;
-                            }
-                        }
-
-
-                        // 在这显示
-                        using (ScrollInvisible("AssemblyList"))
-                        {
-                            // 显示样式列表
-                            if (filteredResult != null)
-                                foreach ((var displayName, var name) in filteredResult)
-                                {
-                                    string location = displayMode switch
-                                    {
-                                        AssemblyDisplayMode.Name => nameAssemblyMap[name],
-                                        AssemblyDisplayMode.FullName => fullNameAssemblyMap[name],
-                                        _ => name,
-                                    };
-
-                                    using (GUICHECK) using (Disable(defaultAssemblyLocations.Contains(location)))
-                                    {
-                                        var val = _ToggleLeft(curAssemlySet.Contains(location), displayName, StlAssemblyToggle);
-                                        if (GUIChanged)
-                                        {
-                                            if (val)
-                                            {
-                                                curAssemlySet.Add(location);
-                                                CurScript.assemblies.Add(locationAssemblyMap[location]);
-                                            }
-                                            else
-                                            {
-                                                curAssemlySet.Remove(location);
-                                                CurScript.assemblies.Remove(locationAssemblyMap[location]);
-                                            }
-                                            Setting.Save();
-                                        }
-                                    }
-                                }
-                        }
-                    }
-
-                    using (HORIZONTAL)
-                    {
-                        if (Button("复制")) CopyCurScript();
-                        if (Button("粘贴")) PasteCurScript(GUIUtility.systemCopyBuffer);
-                    }
-                    if (Button("运行")) Compile();
-                }
-            }
-        }
     }
 }

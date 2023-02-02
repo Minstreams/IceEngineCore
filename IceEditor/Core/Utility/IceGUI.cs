@@ -18,7 +18,8 @@ namespace IceEditor
         #region 样式
         public static GUIStyle StlEmpty => _stlEmpty?.Check() ?? (_stlEmpty = new GUIStyle("label") { margin = new RectOffset(0, 0, 0, 0), padding = new RectOffset(0, 0, 0, 0), }); static GUIStyle _stlEmpty;
         public static GUIStyle StlBackground => _stlBackground?.Check() ?? (_stlBackground = new GUIStyle("label") { margin = new RectOffset(0, 0, 0, 0), padding = new RectOffset(0, 0, 0, 0), stretchHeight = true, alignment = TextAnchor.MiddleCenter, }); static GUIStyle _stlBackground;
-        public static GUIStyle StlLabel => _stlLabel?.Check() ?? (_stlLabel = new GUIStyle("label") { richText = true, wordWrap = true, stretchWidth = false }); static GUIStyle _stlLabel;
+        public static GUIStyle StlLabel => _stlLabel?.Check() ?? (_stlLabel = new GUIStyle("label") { richText = true, wordWrap = true, stretchWidth = false, }); static GUIStyle _stlLabel;
+        public static GUIStyle StlLabelNonWrap => _stlLabelNonWrap?.Check() ?? (_stlLabelNonWrap = new GUIStyle("label") { richText = true, wordWrap = false, stretchWidth = false, }); static GUIStyle _stlLabelNonWrap;
         public static GUIStyle StlHeader => _stlHeader?.Check() ?? (_stlHeader = new GUIStyle("LODRendererRemove") { margin = new RectOffset(5, 3, 6, 2), fontSize = 12, fontStyle = FontStyle.Normal, richText = true, }); static GUIStyle _stlHeader;
         public static GUIStyle StlDock => _stlDock?.Check() ?? (_stlDock = new GUIStyle("dockarea") { padding = new RectOffset(1, 1, 1, 1), contentOffset = new Vector2(0f, 0f), }); static GUIStyle _stlDock;
         public static GUIStyle StlGroup => _stlGroup?.Check() ?? (_stlGroup = new GUIStyle("NotificationBackground") { border = new RectOffset(16, 16, 13, 13), margin = new RectOffset(6, 6, 6, 6), padding = new RectOffset(10, 10, 6, 6), }); static GUIStyle _stlGroup;
@@ -33,7 +34,7 @@ namespace IceEditor
         public static GUIStyle StlSubAreaSeparator => IceGUIUtility.HasPack ? IceGUIUtility.CurrentPack.StlSubAreaSeparator : _stlSubAreaSeparator?.Check() ?? (_stlSubAreaSeparator = IceGUIUtility.GetStlSubAreaSeparator(IceGUIUtility.DefaultThemeColor)); static GUIStyle _stlSubAreaSeparator;
         public static GUIStyle StlViewportToolButton => _stlViewportToolButton?.Check() ?? (_stlViewportToolButton = new GUIStyle("HoverHighlight") { alignment = TextAnchor.MiddleCenter, contentOffset = new Vector2(1f, 0f), fixedWidth = 0f, fixedHeight = 0f, }); static GUIStyle _stlViewportToolButton;
         public static GUIStyle StlSelectedBox => _stlSelectedBox?.Check() ?? (_stlSelectedBox = new GUIStyle("LightmapEditorSelectedHighlight") { overflow = new RectOffset(6, 6, 6, 6), }); static GUIStyle _stlSelectedBox;
-        public static GUIStyle StlGraphPortName => _stlGraphPortName?.Check() ?? (_stlGraphPortName = new GUIStyle("label") { margin = new RectOffset(-1, -1, 0, 0), padding = new RectOffset(0, 0, 0, 0), fontSize = 9, alignment = TextAnchor.MiddleCenter, }.Initialize(stl => { stl.normal.textColor = new Color(0.3962264f, 0.3962264f, 0.3962264f); })); static GUIStyle _stlGraphPortName;
+        public static GUIStyle StlGraphPortName => _stlGraphPortName?.Check() ?? (_stlGraphPortName = new GUIStyle("InvisibleButton") { border = new RectOffset(8, 8, 8, 8), margin = new RectOffset(-1, -1, 0, 0), overflow = new RectOffset(4, 4, 4, 4), fontSize = 9, }.Initialize(stl => { stl.normal.textColor = new Color(0.5f, 0.5f, 0.5f); stl.active.textColor = new Color(0.9528302f, 0.9033909f, 0.9033909f); })); static GUIStyle _stlGraphPortName;
         public static GUIStyle StlGraphPortLabel => _stlGraphPortLabel?.Check() ?? (_stlGraphPortLabel = new GUIStyle("ShurikenValue") { margin = new RectOffset(1, 1, 2, 2), padding = new RectOffset(3, 3, 0, 0), fontSize = 12, alignment = TextAnchor.MiddleCenter, fixedHeight = 0f, }); static GUIStyle _stlGraphPortLabel;
         public static GUIStyle StlSearchTextField => _stlSearchTextField?.Check() ?? (_stlSearchTextField = new GUIStyle("SearchTextField") { padding = new RectOffset(14, 3, 2, 1), fontSize = 12, fixedHeight = 0f, }); static GUIStyle _stlSearchTextField;
         public static GUIStyle StlFooterBtn => _stlFooterBtn?.Check() ?? (_stlFooterBtn = new GUIStyle("RL FooterButton") { fontSize = 14, fixedWidth = 25f, fixedHeight = 19f, fontStyle = FontStyle.Normal, richText = true }); static GUIStyle _stlFooterBtn;
@@ -839,11 +840,11 @@ namespace IceEditor
         public static Event E => Event.current;
 
         // Internal Caches
-        internal static Vector2 _cache_click;
-        internal static Vector2 _cache_drag;
-        internal static Vector2 _cache_offset;
-        internal static Vector2 _cache_pos;
-        internal static double _cache_time;
+        public static Vector2 _cache_click;
+        public static Vector2 _cache_drag;
+        public static Vector2 _cache_offset;
+        public static Vector2 _cache_pos;
+        public static double _cache_time;
         #endregion
 
         #region Drawing Elements

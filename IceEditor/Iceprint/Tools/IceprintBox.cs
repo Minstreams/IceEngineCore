@@ -1,7 +1,10 @@
-﻿using System.Collections;
+﻿using System;
+using System.Linq;
+using System.Collections;
 using System.Collections.Generic;
 
 using UnityEngine;
+using UnityEditor;
 
 using IceEngine;
 using IceEngine.Framework;
@@ -10,8 +13,6 @@ using IceEngine.IceprintNodes;
 using static IceEditor.IceGUI;
 using static IceEditor.IceGUIAuto;
 using IceEditor.Framework;
-using UnityEditor;
-using System;
 
 namespace IceEditor.Internal
 {
@@ -268,7 +269,7 @@ namespace IceEditor.Internal
 
             foreach (var g in Graph.gameObject.scene.GetRootGameObjects())
             {
-                var nodeComps = g.GetComponentsInChildren<IceprintNodeComponent>();
+                var nodeComps = g.GetComponentsInChildren<MonoBehaviour>().Where(c => c.IsIceprintNode());
                 foreach (var nodeComp in nodeComps)
                 {
                     gm.AddItem(new GUIContent(GetMenuPath(nodeComp)), false, () =>
@@ -287,7 +288,7 @@ namespace IceEditor.Internal
                 }
             }
 
-            string GetMenuPath(IceprintNodeComponent node) => $"Components/{node.GetPath()}";
+            string GetMenuPath(MonoBehaviour node) => $"Components/{node.GetPath()}";
 
             gm.ShowAsContext();
         }
@@ -318,8 +319,9 @@ namespace IceEditor.Internal
         static GUIStyle StlItemButton => _stlItemButton?.Check() ?? (_stlItemButton = new GUIStyle("textfield") { margin = new RectOffset(2, 2, 0, 0), padding = new RectOffset(4, 4, 1, 1), fontSize = 11, richText = true, stretchWidth = false, }); static GUIStyle _stlItemButton;
 
         [HierarchyItemGUICallback]
-        static void NodeComponentMarkGUI(IceprintNodeComponent comp, Rect selectionRect)
+        static void NodeComponentMarkGUI(MonoBehaviour comp, Rect selectionRect)
         {
+            if (!comp.IsIceprintNode()) return;
             Label(comp.GetType().Name, StlNodeLabel);
         }
 
@@ -609,7 +611,7 @@ namespace IceEditor.Internal
                                 if (!E.control && !E.shift)
                                 {
                                     selectedNodes.Clear();
-                                    drawer.OnSelect(node);
+                                    drawer.OnSingleSelect(node);
                                 }
                                 selectedNodes.Add(node);
                             }
@@ -852,7 +854,8 @@ namespace IceEditor.Internal
                             {
                                 Vector2 sText = StlGraphPortName.CalcSize(TempContent(port.name));
                                 Rect rText = new(port.IsOutport ? rPort.xMax + StlGraphPortName.margin.left : rPort.x - sText.x - StlGraphPortName.margin.right, rPort.y + 0.5f * (rPort.height - sText.y), sText.x, sText.y);
-                                StyleBox(rText, StlGraphPortName, port.name, isHover: hover);
+                                bool bHover = hover ?? rText.Contains(E.mousePosition);
+                                StyleBox(rText, StlGraphPortName, port.name, isHover: bHover, isActive: bHover);
                             }
 
                             void DrawTextWithType(bool focus)
@@ -930,27 +933,36 @@ namespace IceEditor.Internal
                     // 拖拽
                     case EventType.DragPerform:
                         var objs = DragAndDrop.objectReferences;
+                        void DragComp(MonoBehaviour comp, Vector3 pos)
+                        {
+                            var node = Graph.AddNode(new NodeMonoBehaviour()
+                            {
+                                targetType = comp.GetType(),
+                            }, pos) as NodeMonoBehaviour;
+
+                            node.target.Value = comp;
+
+                            selectedNodes.Add(node);
+                        }
                         foreach (var o in objs)
                         {
                             if (o is GameObject go)
                             {
-                                var comps = go.GetComponents<IceprintNodeComponent>();
+                                var comps = go.GetComponents<MonoBehaviour>().Where(c => c.IsIceprintNode()).ToArray();
+
                                 if (comps.Length > 0) selectedNodes.Clear();
                                 Vector2 offset = Vector2.zero;
                                 foreach (var comp in comps)
                                 {
-                                    var node = Graph.AddNode(new NodeMonoBehaviour()
-                                    {
-                                        targetType = comp.GetType(),
-                                    }, E.mousePosition + offset) as NodeMonoBehaviour;
-
-                                    node.target.Value = comp;
-
-                                    selectedNodes.Add(node);
-
+                                    DragComp(comp, E.mousePosition + offset);
                                     offset += Vector2.one * 32;
                                 }
                                 if (comps.Length > 0) RecordForUndo();
+                            }
+                            else if (o is MonoBehaviour comp)
+                            {
+                                DragComp(comp, E.mousePosition);
+                                RecordForUndo();
                             }
                         }
                         break;

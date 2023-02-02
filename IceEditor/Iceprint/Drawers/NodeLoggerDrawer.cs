@@ -8,36 +8,28 @@ namespace IceEditor.Internal
 {
     internal class NodeLoggerDrawer : Framework.IceprintNodeDrawer<NodeLogger>
     {
+        GUIStyle StlTextfield => "textfield";
         public override Vector2 GetSizeBody(NodeLogger node)
         {
-            return new(Mathf.Max(96, StlIce.CalcSize(TempContent(node.message)).x + 12), 48);
+            return new(Mathf.Max(96, StlTextfield.CalcSize(TempContent(node.message)).x + 8), 32);
         }
         public override Vector2 GetSizeTitle(NodeLogger node)
         {
-            if (!node.folded) return new(96, 16);
-            return new(StlLabel.CalcSize(TempContent(node.message)).x + 58, 22);
+            if (!node.folded) return base.GetSizeTitle(node);
+            return base.GetSizeTitle(node) + new Vector2(StlLabel.CalcSize(TempContent(node.message)).x + 6, 0);
         }
         public override void OnGUI_Title(NodeLogger node, Rect rect)
         {
-            if (node.folded)
-            {
-                using (AreaRaw(rect.ApplyBorder(-2))) using (HORIZONTAL)
-                {
-                    Label("Logger".Bold(), StlIce);
-                    Label(node.message);
-                }
-            }
-            else
-            {
-                base.OnGUI_Title(node, rect);
-            }
+            const float titleWidth = 74;
+            StyleBox(rect.Resize(titleWidth), StlGraphNodeTitle, GetDisplayName(node), true, node.GetArea().Contains(E.mousePosition));
+            if (node.folded) StyleBox(rect.MoveEdge(titleWidth), StlLabel, node.message);
         }
         public override void OnGUI_Body(NodeLogger node, Rect rect)
         {
-            using (Area(rect)) using (LabelWidth(56))
+            using (Area(rect))
             {
-                Label("Message");
-                TextField(ref node.message);
+                Space(6);
+                TextField(ref node.message, StlTextfield);
             }
         }
     }

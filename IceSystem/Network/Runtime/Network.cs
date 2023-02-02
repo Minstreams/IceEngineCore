@@ -89,6 +89,8 @@ namespace Ice
             Log("Shutdown Server");
             Server?.Destroy();
         }
+        public static void ServerOpenUDP() => Server?.OpenUDP();
+        public static void ServerCloseUDP() => Server?.CloseUDP();
         public static void ServerOpenTCP() => Server?.OpenTCP();
         public static void ServerCloseTCP() => Server?.CloseTCP();
         public static void ServerDisconnectAll() => Server?.DisconnectAll();
@@ -205,8 +207,8 @@ namespace Ice
 
         #region Latency simulation
 
-        public static float LatencyOverride { get; set; } = 0;
-        public static bool LatencySimulationEnabled => LatencyOverride > 0 && !IsHost;
+        public static float LatencyOverrideMS { get; set; } = 0;
+        public static bool LatencySimulationEnabled => LatencyOverrideMS > 0 && !IsHost;
 
         public static void CallDelay(Action action)
         {
@@ -236,7 +238,7 @@ namespace Ice
         }
         static IEnumerator DelayToMain(Action action)
         {
-            yield return new WaitForSecondsRealtime(LatencyOverride);
+            yield return new WaitForSecondsRealtime(LatencyOverrideMS / 1000.0f);
             action();
         }
         #endregion
